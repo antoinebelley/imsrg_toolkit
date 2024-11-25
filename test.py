@@ -1,6 +1,8 @@
 import sys
-from imsrg_toolkit.utils import imsrg_toolkit, kshell_wavefunction_script, kshell_density_script
+from imsrg_toolkit.utils import imsrg_toolkit
+from imsrg_toolkit.kshell_utils import kshell_wavefunction_script, kshell_density_script
 import numpy as np
+from textwrap import dedent
 
 
 
@@ -20,13 +22,15 @@ import numpy as np
 
 params = {}
 params['path_to_kshell'] = "/work/submit/abelley/kshell-20230714-ver4/src"
-params['run_cmd'] = """srun apptainer exec \\
-  --bind /home/submit \\
-  --bind /work/submit \\
-  --bind /scratch/submit \\
-  --bind /cvmfs \\
-  --bind /ceph/submit \\
-  /work/submit/abelley/work/kshell.sif"""
+params['run_cmd'] = """\
+  srun apptainer exec \\
+    --bind /home/submit \\
+    --bind /work/submit \\
+    --bind /scratch/submit \\
+    --bind /cvmfs \\
+    --bind /ceph/submit \\
+    /work/submit/abelley/work/kshell.sif """
+# params['run_cmd'] = 'srun'
 
 params['header'] = """#!/bin/bash
 #SBATCH --job-name=test
@@ -35,16 +39,17 @@ params['header'] = """#!/bin/bash
 #SBATCH --cpus-per-task=10
 #SBATCH --output=/work/submit/abelley/results/kshell_log/outputs/test_out_%j.txt
 #SBATCH --error=/work/submit/abelley/results/kshell_log/errors/test_err_%j.txt
-#SBATCH --time=10:00"""
+#SBATCH --time=10:00 """
 
-# he6_wf = kshell_wavefunction_script("/work/submit/abelley/results/He6/SampleDelta/p-shell_SampleDelta_2007_He6_magnus_e2_E6_hw16.snt")
-# he6_wf.update_params(**params)
+
+he6_wf = kshell_wavefunction_script("/work/submit/abelley/results/He6/SampleDelta/p-shell_SampleDelta_2007_He6_magnus_e2_E6_hw16.snt")
+he6_wf.update_params(**params)
 # he6_wf.gen_partition(1)
-# he6_wf.gen_script()
+he6_wf.gen_script(gen_partition=True)
 
 # params = {}
 # params['path_to_kshell'] = "/work/submit/abelley/kshell-20230714-ver4/src"
 
-he6_density = kshell_density_script("/work/submit/abelley/results/He6/SampleDelta/p-shell_SampleDelta_2007_He6_magnus_e2_E6_hw16.snt")
-he6_density.update_params(**params)
-he6_density.gen_script("/work/submit/abelley/work/He6_p-shell_SampleDelta_2007_He6_magnus_e2_E6_hw16_p.ptn")
+# he6_density = kshell_density_script("/work/submit/abelley/results/He6/SampleDelta/p-shell_SampleDelta_2007_He6_magnus_e2_E6_hw16.snt")
+# he6_density.update_params(**params)
+# he6_density.gen_script("/work/submit/abelley/work/He6_p-shell_SampleDelta_2007_He6_magnus_e2_E6_hw16_p.ptn")
