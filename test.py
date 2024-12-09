@@ -1,8 +1,7 @@
 import sys
-from imsrg_toolkit.utils import imsrg_toolkit
-from imsrg_toolkit.kshell_utils import kshell_wavefunction_script, kshell_density_script
+# from imsrg_toolkit.imsrg import Imsrg
+from imsrg_toolkit.kshell_utils import KshellWavefunctionScript, KshellDensityScript, KshellToolkit
 import numpy as np
-from textwrap import dedent
 
 
 
@@ -39,13 +38,17 @@ params['header'] = """#!/bin/bash
 #SBATCH --cpus-per-task=10
 #SBATCH --output=/work/submit/abelley/results/kshell_log/outputs/test_out_%j.txt
 #SBATCH --error=/work/submit/abelley/results/kshell_log/errors/test_err_%j.txt
+#SBATCH --begin=now+60
 #SBATCH --time=10:00 """
 
 
-he6_wf = kshell_wavefunction_script("/work/submit/abelley/results/He6/SampleDelta/p-shell_SampleDelta_2007_He6_magnus_e2_E6_hw16.snt")
-he6_wf.update_params(**params)
-# he6_wf.gen_partition(1)
-he6_wf.gen_script(gen_partition=True)
+header_calexpval = """#SBATCH --output=/work/submit/abelley/results/kshell_log/outputs/test_out_%j.txt
+#SBATCH --error=/work/submit/abelley/results/kshell_log/errors/test_err_%j.txt"""
+
+# he6_wf = kshell_wavefunction_script("/work/submit/abelley/results/He6/SampleDelta/p-shell_SampleDelta_2007_He6_magnus_e2_E6_hw16.snt")
+# he6_wf.update_params(**params)
+# # he6_wf.gen_partition(1)
+# he6_wf.gen_script(gen_partition=True)
 
 # params = {}
 # params['path_to_kshell'] = "/work/submit/abelley/kshell-20230714-ver4/src"
@@ -53,3 +56,12 @@ he6_wf.gen_script(gen_partition=True)
 # he6_density = kshell_density_script("/work/submit/abelley/results/He6/SampleDelta/p-shell_SampleDelta_2007_He6_magnus_e2_E6_hw16.snt")
 # he6_density.update_params(**params)
 # he6_density.gen_script("/work/submit/abelley/work/He6_p-shell_SampleDelta_2007_He6_magnus_e2_E6_hw16_p.ptn")
+
+he6 = kshell_toolkit("/work/submit/abelley/results/He6/SampleDelta/p-shell_SampleDelta_2007_He6_magnus_e2_E6_hw16.snt", "He6", ["+1", "+1"], **params)
+# he6.calc_opexpvals("/work/submit/abelley/results/He6/SampleDelta/p-shell_SampleDelta_2007_He6_magnus_e2_E6_hw16_Rp2.snt")
+# he6.calc_opexpvals("/work/submit/abelley/results/He6/SampleDelta/p-shell_SampleDelta_2007_He6_magnus_e2_E6_hw16_Rp2_HF.snt")
+# he6.gen_df_from_outputs()
+# print(he6.df)
+# he6.gen_expvals_script(['/work/submit/abelley/results/He6/SampleDelta/p-shell_SampleDelta_2007_He6_magnus_e2_E6_hw16_Rp2.snt', '/work/submit/abelley/results/He6/SampleDelta/p-shell_SampleDelta_2007_He6_magnus_e2_E6_hw16_Rp2_HF.snt'])
+he6.submit_all(['/work/submit/abelley/results/He6/SampleDelta/p-shell_SampleDelta_2007_He6_magnus_e2_E6_hw16_Rp2.snt', '/work/submit/abelley/results/He6/SampleDelta/p-shell_SampleDelta_2007_He6_magnus_e2_E6_hw16_Rp2_HF.snt'], verbose= True)
+

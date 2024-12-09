@@ -6,11 +6,8 @@ import pandas as pd
 from sympy.physics.wigner import wigner_3j, wigner_6j, wigner_9j, clebsch_gordan
 from sympy.physics.quantum.cg import CG
 import functools
-if(__package__==None or __package__==""):
-    import ModelSpace
-else:
-    from . import Orbits
-    from . import ModelSpace
+from imsrg_toolkit.Orbits import Orbits, OrbitsIsospin
+from imsrg_toolkit.ModelSpace import ModelSpace
 
 @functools.lru_cache(maxsize=None)
 def _sixj(j1, j2, j3, j4, j5, j6):

@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
-if(__package__==None or __package__==""):
-    from Orbits import OrbitsIsospin
-else:
-    from . import OrbitsIsospin
+from imsrg_toolkit.Orbits import OrbitsIsospin
+
 class ThreeBodyChannel:
     def __init__(self,J=None,P=None,T=None,orbits=None,e2max=None,e3max=None):
         self.J = J

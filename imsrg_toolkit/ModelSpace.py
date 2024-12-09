@@ -1,13 +1,8 @@
 #!/usr/bin/env python3
 import copy
-if(__package__==None or __package__==""):
-    from Orbits import Orbits, OrbitsIsospin
-    import TwoBodySpace
-    import ThreeBodySpace
-else:
-    from . import Orbits, OrbitsIsospin
-    from . import TwoBodySpace
-    from . import ThreeBodySpace
+from imsrg_toolkit.Orbits import Orbits, OrbitsIsospin
+import imsrg_toolkit.TwoBodySpace as TwoBodySpace
+import imsrg_toolkit.ThreeBodySpace as ThreeBodySpace
 
 class ModelSpace:
     def __init__(self, rank=2):
