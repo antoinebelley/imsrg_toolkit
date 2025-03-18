@@ -21,7 +21,6 @@ class Imsrg():
     self.file3b_directory  = '/ceph/submit/data/group/ab-initio/me3j/'
 
     # Model space parameters
-    self.Z = 2
     self.A = 6
     self.emax = 2
     self.E3max = 6
@@ -222,33 +221,41 @@ class Imsrg():
     if (op.GetJRank() == 0 and op.GetTRank() == 0 and op.GetParity() == 0):
       self.rw.WriteTokyo(op, filename, "op")
     else:
+      if op.GetJRank() == 0:
+        op.MakeReduced()
       self.rw.WriteTensorTokyo(filename,op)
 
 
   def evolve_operators(self):
+    self.ops = []
+    self.op_strings = [] #Name at the end of the snt file
     if len(self.opnames) != 0:
-      for i,opname in enumerate(self.opnames):
-          print(f"Starting to evolve {opname}:")
-          op = OperatorFromString(self.ms, opname)
-          if self.write_HO_ops:
-            print(f"Writing HO operators to {self.output_dir}")
-            self.write_op_to_file(op, opname, extra = "HO")
-          op = self.hf.TransformToHFBasis(op)
-          if self.write_HF_ops:
-            op = op.DoNormalOrderingCore()
-            print(f"Writing HF operators to {self.output_dir}")
-            self.write_op_to_file(op, opname, extra = "HF")
-            op = op.UndoNormalOrdering()
-          op = op.DoNormalOrdering()
-          op = self.imsrgsolver.Transform(op)
-          op = op.UndoNormalOrdering()
-          op = op.DoNormalOrderingCore()
-          print( opname , 'zero body = ', op.ZeroBody)
-          self.write_op_to_file(op, opname)
+      for opname in self.opnames:
+        print(f"Starting to evolve {opname}:")
+        op = OperatorFromString(self.ms, opname)
+        self.ops.append(op)
+        self.op_strings.append(opname)
     if len(self.opfiles) != 0:
-      #TODO add function to read operator from file
-      print("Opeator from file not yet implemented.")
-      print("Continuing...")
+      for opfile in self.opfiles:
+        op = self.rw.ReadOperator2b_Miyagi(opfile[0], self.ms)
+        self.ops.append(op)
+        self.op_strings.append(opfile[1])
+    for op, name in zip(self.ops, self.op_strings):
+      if self.write_HO_ops:
+        print(f"Writing HO operators to {self.output_dir}")
+        self.write_op_to_file(op, name, extra = "HO")
+      op = self.hf.TransformToHFBasis(op)
+      if self.write_HF_ops:
+        op = op.DoNormalOrderingCore()
+        print(f"Writing HF operators to {self.output_dir}")
+        self.write_op_to_file(op, name, extra = "HF")
+        op = op.UndoNormalOrdering()
+      op = op.DoNormalOrdering()
+      op = self.imsrgsolver.Transform(op)
+      op = op.UndoNormalOrdering()
+      op = op.DoNormalOrderingCore()
+      print( opname , 'zero body = ', op.ZeroBody)
+      self.write_op_to_file(op, name)
 
 
   def evolve_Hamiltonian(self, HNO):

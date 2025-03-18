@@ -22,6 +22,7 @@ log_file = f"/work/submit/{username}/_results/imsrg/out.txt"
 error_file = f"/work/submit/{username}/_results/imsrg/err.txt"
 mass =  [16]
 Nucleus = "O"
+
 vs = 'sd-shell'
 state = "+1"
 num_samples = 1

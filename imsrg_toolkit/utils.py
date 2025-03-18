@@ -17,7 +17,6 @@ class ImsrgParams():
     self.file3b_directory  = '/ceph/submit/data/group/ab-initio/me3j/'
 
     # Model space parameters
-    self.Z = 2
     self.A = 6
     self.emax = 2
     self.E3max = 6
@@ -87,6 +86,7 @@ class Utils():
     pars = ImsrgParams(SampleID,**imsrg_params)
     fn_snt = pars.intfile
     self.opnames = pars.opnames
+    self.opfiles = pars.opfiles
     self.output_dir = pars.output_dir
     fn_snt_path = Path(fn_snt)
     self.submit_cmd = submit_cmd
@@ -205,9 +205,13 @@ class Utils():
   def submit_all(self, file2b, file3b, fn_output, ops_rankJ=None, ops_rankP=None, ops_rankZ=None,  header_expvals=None, verbose=False):
     imsrg_id = self.submit_imsrg(file2b, file3b, verbose=verbose)
     fn_ops = [f"{self.output_dir}{self.filebase}_{op}.snt" for op in self.opnames]
+    if len(self.opfiles) > 0 :
+      tmp = [f'{self.output_dir}{self.filebase}_{op[1]}.snt' for op in self.opfiles]
+      fn_ops.extend(tmp)
     self.kshell.submit_all(fn_output, fn_ops, previous_jobid = imsrg_id, ops_rankJ = ops_rankJ, ops_rankP = ops_rankP, ops_rankZ = ops_rankZ, header = header_expvals, verbose=verbose)
+
 
   def submit_all_combine_delta(self, LECs, sampleID, fn_output, ops_rankJ=None, ops_rankP=None, ops_rankZ=None,  header_expvals=None, verbose=False):
     imsrg_id = self.submit_imsrg_combine_delta(LECs, sampleID, verbose=verbose)
-    fn_ops = [f"{self.output_dir}{self.filebase}_{op}.snt" for op in self.opnames]
+    fn_ops = [f"{self.output_dir}{self.filebase}_{op}.snt" for op in self.op_strings]
     self.kshell.submit_all(fn_output, fn_ops, previous_jobid = imsrg_id, ops_rankJ = ops_rankJ, ops_rankP = ops_rankP, ops_rankZ = ops_rankZ, header = header_expvals, verbose=verbose)

@@ -299,7 +299,7 @@ class KshellWavefunctionScript(KshellScript):
       if self.A%2 ==1:
         m = 1
     else:
-      J = float(findall(r"[-+]?\d*\.*\d+", self.states)[0])
+      J = float(re.findall(r"[-+]?\d*\.*\d+", self.states)[0])
       m = int(2*J)
     str_state = state_string(self.states, self.A)
     if gen_partition and str_state[-1] == 'p':
@@ -529,6 +529,11 @@ class KshellToolkit():
 
   def write_outputs_to_file(self, fn_output):
     self.gen_df_from_outputs()
+    try:
+      df = pd.read_csv(fn_output)
+      self.df = pd.concat([df,self.df])
+    except:
+      pass
     self.df.to_csv(fn_output)
 
 
