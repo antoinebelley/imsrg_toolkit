@@ -7,6 +7,7 @@ from textwrap import dedent
 from subprocess import run, PIPE
 from imsrg_toolkit.TransitionDensity import TransitionDensity
 from imsrg_toolkit.Operator import Operator
+from imsrg_toolkit.settings import username
 import itertools
 import pandas as pd
 
@@ -83,15 +84,15 @@ class KshellScript():
     self.Nucl = "He6"
     self.Z, self.N, self.A = _ZNA_from_str(self.Nucl)
     self.header = " "
-    self.output_directory =  "/home/submit/abelley/results/kshell/"
-    self.scratch_directory = "/work/submit/abelley/work/kshell/"
+    self.output_directory =  f"/home/submit/{username}/results/kshell/"
+    self.scratch_directory = f"/work/submit/{username}/work/kshell/"
     self.update_params(**kwargs)
     fn_snt_path = Path(fn_snt)
     self.filebase = fn_snt_path.name[:-4]
     self.fn_base = self.Nucl+ "_" + self.filebase
     self.run_cmd = 'srun'
     self.fn_snt = fn_snt
-    
+
 
   def update_params(self, **kwargs):
     for key, value in kwargs.items():
@@ -105,7 +106,7 @@ class KshellWavefunctionScript(KshellScript):
   def __init__(self, fn_snt, **kwargs):
     super().__init__(fn_snt, **kwargs)
     #TODO make it so we can actually pass many states as inputs
-    self.states = "+1" 
+    self.states = "+1"
     self.hw_truncation = None
     self.ph_truncation = None
     self.update_params(**kwargs)
@@ -116,7 +117,7 @@ class KshellWavefunctionScript(KshellScript):
       fn_ptn += "_n"
     fn_ptn += ".ptn"
     self.fn_ptn = fn_ptn
-    
+
 
   def read_comment_skip(self, fp):
     while 1:
@@ -125,8 +126,8 @@ class KshellWavefunctionScript(KshellScript):
         if arr[0] == '!namelist':
             if arr[2] != '=': raise 'ERROR namlist line in snt'
             var_dict[arr[1]]  = ' '.join(arr[3:])
-        for i in range(len(arr)): 
-            if arr[i][0]=="!" or arr[i][0]=="#": 
+        for i in range(len(arr)):
+            if arr[i][0]=="!" or arr[i][0]=="#":
                 arr = arr[:i]
                 break
         if not arr: continue
@@ -147,9 +148,9 @@ class KshellWavefunctionScript(KshellScript):
     nfmax = [0, 0]
     for i in range(np+nn):
         arr = self.read_comment_skip(fp)
-        if i+1 != int(arr[0]): 
+        if i+1 != int(arr[0]):
             print( 'snt index error', i, arr[0] )
-            raise 
+            raise
         norb.append( int(arr[1]) )
         lorb.append( int(arr[2]) )
         jorb.append( int(arr[3]) )
@@ -182,27 +183,27 @@ class KshellWavefunctionScript(KshellScript):
     asc = ele[:isdigit.start()] + ele[isdigit.end():]
     asc = asc.lower()
     asc = asc[0].upper() + asc[1:]
-    if not asc in periodic_table: 
+    if not asc in periodic_table:
         print( '*** Invalid: unknown element ***', asc )
         return False
     z = periodic_table.index(asc)
     corep, coren = self.snt_prm['ncore']
-    
+
     if corep >= 0: nf1 =  z - corep
     else:          nf1 = -z - corep
     if coren >= 0: nf2 =   mass - z  - coren
     else:          nf2 = -(mass - z) - coren
-        
+
     # print( '\n number of active particles ', nf1, nf2 )
-    
+
     if nf1 < 0 or nf2 < 0 or \
        nf1 > self.snt_prm['nfmax'][0] or \
        nf2 > self.snt_prm['nfmax'][1]:
         print( '*** ERROR: nuclide out of model space ***' )
         return False
     return (nf1, nf2)
-    
-  
+
+
   def get_occupation(self, hw_ex=False):
     H = Operator()
     H.read_operator_file(self.fn_snt,A=self.A)
@@ -273,7 +274,7 @@ class KshellWavefunctionScript(KshellScript):
 
 
   def gen_partition(self, parity):
-    #parity : "1" or "-1" 
+    #parity : "1" or "-1"
     self.snt_prm = {}
     self.read_snt()
     self.nf = self.element2nf()
@@ -314,12 +315,12 @@ class KshellWavefunctionScript(KshellScript):
       cat > {self.fn_base}_{str_state}.input <<EOF
       &input
       beta_cm = 0
-      eff_charge = 1.5, 0.5, 
+      eff_charge = 1.5, 0.5,
       fn_int = "{self.fn_snt}"
       fn_ptn = "{self.fn_ptn}"
       fn_save_wave = "{self.fn_base}_{str_state}.wav"
-      gl = 1.0, 0.0, 
-      gs = 3.91, -2.678, 
+      gl = 1.0, 0.0,
+      gs = 3.91, -2.678,
       hw_type = 1
       is_double_j = .{jdouble}.
       max_lanc_vec = 200
@@ -331,9 +332,9 @@ class KshellWavefunctionScript(KshellScript):
       &end
       EOF
     """)
-    s+= f"{self.run_cmd} ./kshell.exe {self.fn_base}_{str_state}.input > log_{self.fn_base}_{str_state}.txt 2>&1\n" 
+    s+= f"{self.run_cmd} ./kshell.exe {self.fn_base}_{str_state}.input > log_{self.fn_base}_{str_state}.txt 2>&1\n"
     s+= dedent(f"""
-      rm -f tmp_snapshot_*{Path(self.fn_ptn).name}_0_* tmp_lv_*{Path(self.fn_ptn).name}_0_* {self.fn_base}_{str_state}.input 
+      rm -f tmp_snapshot_*{Path(self.fn_ptn).name}_0_* tmp_lv_*{Path(self.fn_ptn).name}_0_* {self.fn_base}_{str_state}.input
 
       ./collect_logs.py log_*{self.fn_base}* > summary_{self.fn_base}.txt
       cp summary_{self.fn_base}.txt {self.output_directory}
@@ -385,8 +386,8 @@ class KshellDensityScript(KshellScript):
     self.Z_daughter, self.N_daughter, self.A_daughter = _ZNA_from_str(self.Nucl_daughter)
     self.fn_script = f"{self.scratch_directory}/density_{self.filebase}_{self.Nucl_daughter}{state_string(self.state_list[1], self.A_daughter)}_{self.Nucl}{state_string(self.state_list[0], self.A)}.sh"
     self.fn_density = f"{self.scratch_directory}/density_{self.filebase}_{self.Nucl_daughter}{state_string(self.state_list[1], self.A_daughter)}_{self.Nucl}{state_string(self.state_list[0], self.A)}.txt"
-    
-    
+
+
 
   def gen_script(self, fn_ptn, fn_ptn_daughter=None):
     if not fn_ptn_daughter:
@@ -438,17 +439,17 @@ class KshellToolkit():
       self.kshell_bra = self.kshell_ket
       self.density_script = KshellDensityScript(fn_snt, Nucl = Nucl, state_list=state_list, **kwargs)
     self.outputs = []
-    
+
 
   def gen_partition(self, ket=True):
     if ket:
-      if state_string(self.state_list[-1], self.A)[-1] == 'p': 
+      if state_string(self.state_list[-1], self.A)[-1] == 'p':
         parity = 1
       else:
         parity = -1
       self.kshell_ket.gen_partition(parity)
     else:
-      if state_string(self.state_list[0], self.A)[-1] == 'p': 
+      if state_string(self.state_list[0], self.A)[-1] == 'p':
         parity = 1
       else:
         parity = -1
@@ -467,12 +468,12 @@ class KshellToolkit():
         self.gen_partition(ket=False)
       bra_sh = self.kshell_bra.gen_script()
       jobid_bra = run([self.submit_cmd, '--parsable', f'--dependency=afterok:{previous_jobid}', '--kill-on-invalid-dep=yes', bra_sh], stdout=PIPE, text=True, check=True).stdout.rstrip()
-      if verbose: 
+      if verbose:
         print(f'Submitted bra diagonalization with jobid {jobid_bra}')
       return [jobid_bra, jobid_ket]
     else:
       return [jobid_ket]
-    
+
 
   def submit_density(self, previous_jobids=-1, verbose = False):
     if self.Nucl_daughter != self.Nucl:
@@ -487,7 +488,7 @@ class KshellToolkit():
     if verbose:
       print(f'Submitted density with jobid {jobid_density}')
     return jobid_density
-  
+
 
   def calc_opexpvals(self, fn_op, op_rankJ = 0, op_rankP = 1, op_rankZ = 0):
     op = Operator(filename=fn_op, rankJ=op_rankJ, rankP=op_rankP, rankZ=op_rankZ)
@@ -519,7 +520,7 @@ class KshellToolkit():
       output = Density.eval(op)
       output = [fn_op,self.Nucl_daughter,Jbra,Pbra,nn_bra,en_bra,self.Nucl,Jket,Pket,nn_ket,en_ket,*output]
       self.outputs.append(output)
-    
+
 
   def gen_df_from_outputs(self):
     self.df = pd.DataFrame(self.outputs)
@@ -581,4 +582,3 @@ class KshellToolkit():
     if len(fn_ops) > 0:
       #Submit the exp vals calculations
       self.submit_expvals(fn_output, fn_ops, ops_rankJ = ops_rankJ, ops_rankP = ops_rankP, ops_rankZ = ops_rankZ, previous_jobid = density_id, verbose=verbose, header=header)
-    

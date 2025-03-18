@@ -4,6 +4,7 @@ import sys, os
 from pathlib import Path
 import numpy as np
 
+from imsrg_toolkit.settings import username
 
 
 class Imsrg():
@@ -14,8 +15,8 @@ class Imsrg():
     ### TODO add all IMSRG parameters in the params
     #Paths to different directories that are used
     #TODO update those from a config file
-    self.scratch_directory = '/work/submit/abelley/work/imsrg/'
-    self.output_directory_base = '/home/submit/abelley/results/'
+    self.scratch_directory = f'/work/submit/{username}/work/imsrg/'
+    self.output_directory_base = f'/home/submit/{username}/results/'
     self.file2b_directory = '/ceph/submit/data/group/ab-initio/me2j/'
     self.file3b_directory  = '/ceph/submit/data/group/ab-initio/me3j/'
 
@@ -107,19 +108,19 @@ class Imsrg():
       Hbare.ThreeBody.SetMode('no2b')
     if self.file3_precision == 'half':
       Hbare.ThreeBody.SetMode("no2bhalf")
-    self.rw.ReadBareTBME_Darmstadt(self.file2b_directory+file2b, Hbare, 
-                                self.file2e1max, 
-                                self.file2e2max, 
+    self.rw.ReadBareTBME_Darmstadt(self.file2b_directory+file2b, Hbare,
+                                self.file2e1max,
+                                self.file2e2max,
                                 self.file2lmax)
-    Hbare.ThreeBody.ReadFile([self.file3b_directory+file3b], 
-                                  [self.file3e1max, 
-                                  self.file3e2max, 
+    Hbare.ThreeBody.ReadFile([self.file3b_directory+file3b],
+                                  [self.file3e1max,
+                                  self.file3e2max,
                                   self.file3e3max
                                   ]
                                   )
     Hbare += Trel_Op(self.ms)
     return Hbare
-  
+
 
   def read_interaction_combine_delta(self, LECs):
     #Array containing the 2b file name
@@ -144,15 +145,15 @@ class Imsrg():
     LECs_2b = [1-np.sum(LECs[:-2])]
     for i in range(len(LECs[:-2])):
       LECs_2b.append(LECs[i])
-    #Array containing the 3B files. 
+    #Array containing the 3B files.
     files_3b = ["NO2B_half_ThBME_3NFJmax15_c1_1_c3_0_c4_0_cD_0_cE_0_NonLocal4_394_IS_hw10_ms16_32_28.stream.bin"]
     files_3b.append("NO2B_half_ThBME_3NFJmax15_c1_0_c3_1_c4_0_cD_0_cE_0_NonLocal4_394_IS_hw10_ms16_32_28.stream.bin")
     files_3b.append("NO2B_half_ThBME_3NFJmax15_c1_0_c3_0_c4_1_cD_0_cE_0_NonLocal4_394_IS_hw10_ms16_32_28.stream.bin")
     files_3b.append("NO2B_half_ThBME_3NFJmax15_c1_0_c3_0_c4_0_cD_1_cE_0_NonLocal4_394_IS_hw10_ms16_32_28.stream.bin")
-    files_3b.append("NO2B_half_ThBME_3NFJmax15_c1_0_c3_0_c4_0_cD_0_cE_1_NonLocal4_394_IS_hw10_ms16_32_28.stream.bin") 
+    files_3b.append("NO2B_half_ThBME_3NFJmax15_c1_0_c3_0_c4_0_cD_0_cE_1_NonLocal4_394_IS_hw10_ms16_32_28.stream.bin")
     #LECs for the 3B part. Need to remove value from c3 due to convention
     LECs_3b = [LECs[11],LECs[13]-2.972246,LECs[14]+1.486123,LECs[15],LECs[16]]
-    #Initialized the Hamiltonian operator  
+    #Initialized the Hamiltonian operator
     Hbare = Operator(self.ms,0,0,0,3)
     Hbare.SetHermitian()
     #Initialized a temporary Hamiltonian operator
@@ -169,26 +170,26 @@ class Imsrg():
       Hbare_temp.ThreeBody.SetMode("no2bhalf")
     #Read constant part of the Hamiltonian and multiply it by the reweighted LEC
     #i.e. the one where we remove the double counting coming from the other files.
-    self.rw.ReadBareTBME_Darmstadt(self.file2b_directory+files_2b[0], Hbare, 
-                                self.file2e1max, 
-                                self.file2e2max, 
+    self.rw.ReadBareTBME_Darmstadt(self.file2b_directory+files_2b[0], Hbare,
+                                self.file2e1max,
+                                self.file2e2max,
                                 self.file2lmax)
     Hbare *= LECs_2b[0]
     # Loops over all other LECs and read the associated file, multiply it by the LEC
     # Then erase the operator to save memory.
     for i,lec in enumerate(LECs_2b[1:]):
       self.rw.ReadBareTBME_Darmstadt(self.file2b_directory+files_2b[i+1], Hbare_temp,
-                                self.file2e1max, 
-                                self.file2e2max, 
+                                self.file2e1max,
+                                self.file2e2max,
                                 self.file2lmax)
       Hbare_temp.ScaleTwoBody(lec)
       Hbare += Hbare_temp
       Hbare_temp.Erase()
-    # Same Loop but for the 3B term. 
+    # Same Loop but for the 3B term.
     for i,lec in enumerate(LECs_3b):
-      Hbare_temp.ThreeBody.ReadFile([self.file3b_directory+files_3b[i]], 
-                                    [self.file3e1max, 
-                                    self.file3e2max, 
+      Hbare_temp.ThreeBody.ReadFile([self.file3b_directory+files_3b[i]],
+                                    [self.file3e1max,
+                                    self.file3e2max,
                                     self.file3e3max
                                     ]
                                     )
@@ -291,7 +292,7 @@ class Imsrg():
 
     #Give estimate with perturbation theory to make sure everything is ok
     self.print_estimatePT(HNO)
-    
+
     #Do the IMSRG evolution of the Hamiltonian
     HNO = self.evolve_Hamiltonian(HNO)
 
@@ -303,16 +304,16 @@ class Imsrg():
     self.intfile = f"{self.output_dir}/{self.filebase}"
     self.rw.WriteTokyo(HNO,self.intfile+".snt", "")
     stdout.flush()
-    
-    # Evolve operators 
+
+    # Evolve operators
     self.evolve_operators()
-       
+
     # # #Write_kshell_jobs to be submitted after the imsrg has ran
     # for states in params["state_lists"]:
     #   kshl_r, f_diag_r = write_kshell_diag(params['path_to_kshell'], intfile+".snt", params['Nucl'], params['hw_truncation'], params['ph_truncation'], params['header'], gen_partition=True, states=states[0])
     #   if params['Nucl_daughter']:
     #     kshl_l, f_diag_l = write_kshell_diag(params['path_to_kshell'], intfile+".snt", params['Nucl_daughter'], params['hw_truncation'], params['ph_truncation'], params['header'], gen_partition=True, states=states[1])
-  
+
 
   def run_combine_delta(self, LECs, sampleID):
     #Initiate the ReadWrite class to access files
@@ -343,8 +344,8 @@ class Imsrg():
     self.intfile = f"{self.output_dir}/{self.filebase}"
     self.rw.WriteTokyo(HNO,self.intfile+".snt", "")
     stdout.flush()
-    
-    # Evolve operators 
+
+    # Evolve operators
     self.evolve_operators()
 
 

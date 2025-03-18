@@ -3,6 +3,7 @@ from pathlib import Path
 import os
 from subprocess import run, PIPE
 
+from imsrg_toolkit.settings import username
 
 class ImsrgParams():
   def __init__(self, sampleID = None, **kwargs):
@@ -10,8 +11,8 @@ class ImsrgParams():
     ### TODO add all IMSRG parameters in the params
     #Paths to different directories that are used
     #TODO update those from a config file
-    self.scratch_directory = '/work/submit/abelley/work/imsrg/'
-    self.output_directory_base = '/home/submit/abelley/results/'
+    self.scratch_directory = f'/work/submit/{username}/work/imsrg/'
+    self.output_directory_base = f'/home/submit/{username}/results/'
     self.file2b_directory = '/ceph/submit/data/group/ab-initio/me2j/'
     self.file3b_directory  = '/ceph/submit/data/group/ab-initio/me3j/'
 
@@ -80,7 +81,7 @@ class ImsrgParams():
 
 
 class Utils():
-  def __init__(self, Nucl, state_list, imsrg_params, kshell_params, SampleID=None, Nucl_daughter=None, submit_cmd='sbatch', module_path = "/work/submit/abelley/imsrg_toolkit/"):
+  def __init__(self, Nucl, state_list, imsrg_params, kshell_params, SampleID=None, Nucl_daughter=None, submit_cmd='sbatch', module_path = f"/work/submit/{username}/imsrg_toolkit/"):
     self.imsrg_params = imsrg_params
     self.module_path = module_path
     pars = ImsrgParams(SampleID,**imsrg_params)
@@ -94,8 +95,8 @@ class Utils():
     self.filebase = fn_snt_path.name
     self.fn_py = self.filebase+".py"
     self.fn_sh = self.filebase+".sh"
-    self.scratch_directory = '/work/submit/abelley/work/imsrg/'
-  
+    self.scratch_directory = f'/work/submit/{username}/work/imsrg/'
+
   def write_script_header(self):
     script = "#!/usr/bin/env python3\n"
     script += "import sys\n"
@@ -120,7 +121,7 @@ class Utils():
     script+='}\n'
 
     script += "imsrg = Imsrg(**params)\n"
-    
+
     return script
 
 
@@ -160,7 +161,7 @@ class Utils():
     if self.kshell.Nucl != self.kshell.Nucl_daughter:
       script += "kshell.gen_partition(ket=False)\n"
     return script
-  
+
   def write_submission_script(self, fn_script, file):
     submit_script = f"{self.imsrg_params['header']}\n"
     submit_script += f"{self.imsrg_params['run_cmd']} python3 {file}\n"
@@ -194,7 +195,7 @@ class Utils():
   def submit_imsrg(self, file2b, file3b, verbose=False):
     fn_sh = self.gen_imsrg_submit_script(file2b, file3b)
     return self.submit_job(fn_sh, verbose=verbose)
-  
+
 
   def submit_imsrg_combine_delta(self, LECs, sampleID, verbose = True):
     fn_sh = self.gen_imsrg_submit_script_combine_delta(LECs, sampleID)
