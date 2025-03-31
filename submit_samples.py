@@ -93,7 +93,7 @@ for A in mass:
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=24
 #SBATCH --output={imsrg_log_path}/{imsrg_params['ref']}_emax{imsrg_params['emax']}_Sample{SampleID}_%j.txt
-#SBATCH --error={imsrg_error_path}/_results/imsrg_log/errors/{imsrg_params['ref']}_emax{imsrg_params['emax']}_Sample{SampleID}_%j.txt
+#SBATCH --error={imsrg_error_path}/{imsrg_params['ref']}_emax{imsrg_params['emax']}_Sample{SampleID}_%j.txt
 #SBATCH --time={t}
 #SBATCH --mem={m}
 
