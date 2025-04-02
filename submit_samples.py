@@ -23,7 +23,7 @@ imsrg_log_path = f"/work/submit/{username}/results/imsrg_log/outputs/"
 imsrg_error_path = f"/work/submit/{username}/results/imsrg_log/errors/"
 kshell_log_path = f"/work/submit/{username}/results/kshell_log/outputs/"
 kshell_error_path = f"/work/submit/{username}/results/kshell_log/errors/"
-mass =  [24]
+mass =  [23]
 Nucleus = "Al"
 
 vs = 'sd-shell'

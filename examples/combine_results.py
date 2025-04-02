@@ -15,7 +15,7 @@ pd.set_option('display.width', 1000)
 
 
 
-A = 23
+A = 24
 Z = 13
 N = A-Z
 Nucl = f"Al{A}"
