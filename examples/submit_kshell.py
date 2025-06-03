@@ -50,9 +50,8 @@ kshell_params['header'] = f"""#!/bin/bash
 #SBATCH --cpus-per-task=10
 #SBATCH --mem-per-cpu=1000M
 #SBATCH --time=0-01:00
-# ulimit -s unlimited\
-module load mpi
-# """
+# ulimit -s unlimited
+module load mpi"""
 # kshell_params['header'] = f"""#!/bin/bash
 # #SBATCH --job-name=test_kshell_Al24_emax{e}_magic_%j
 # #SBATCH --nodes=1

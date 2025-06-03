@@ -2,6 +2,7 @@ import sys
 # from imsrg_toolkit.imsrg import Imsrg
 from imsrg_toolkit.kshell_utils import KshellWavefunctionScript, KshellDensityScript, KshellToolkit
 from imsrg_toolkit.utils import Utils
+from imsrg_toolkit.settings import username
 import numpy as np
 import pandas as pd
 
@@ -14,9 +15,12 @@ import pandas as pd
 opfiles_path = "/work/submit/abelley/operators"
 
 ##########PARAMETERS TO CHANGE BEFORE RUN###################
-emax = [4,6,8,10]
-time = ["00:10:00", "00:30:00", "02:00:00","08:00:00"]
-memory = ['10G', "10G", "20G","100G"]
+emax = [4]#,6,8,10]
+# emax = [6,8,10]
+time = ["00:10:00"]#, "00:30:00", "02:00:00","08:00:00"]
+memory = ['10G']#, "10G", "20G","100G"]
+# time = ["00:30:00", "02:00:00","08:00:00"]
+# memory = ["10G", "20G","100G"]
 mass =  [24]
 Nucleus = "Al"
 vs = 'sd-shell'
@@ -26,7 +30,7 @@ vs = 'sd-shell'
 # mass =  [6]
 # Nucleus = "He"
 # vs = 'p-shell'
-state = "1+1"
+state = "1+2"
 file2b = "TwBME-HO_NN-only_N3LO_EM500_srg1.80_hw16_emax18_e2max36.me2j.gz"
 file3b = "NO2B_half_ThBME_EM1.8_2.0_3NFJmax15_IS_hw16_ms16_32_28.stream.bin"
 opnames = ['M1']
@@ -60,7 +64,7 @@ srun apptainer exec \\
   --bind /work/submit \\
   --bind /scratch/submit \\
   --bind /ceph/submit \\
-  /work/submit/abelley/pyimsrg.sif """
+  /work/submit/abelley/imsrg/pyimsrg.sif """
 #     imsrg_params['run_cmd'] = """\
 # srun apptainer exec \\
 #   --bind /home/submit \\
@@ -70,21 +74,18 @@ srun apptainer exec \\
 #   /work/submit/abelley/imsrg/pyimsrg.sif """
 
     kshell_params = {}
-    kshell_params['run_cmd'] = """\
-srun apptainer exec \\
-  --bind /home/submit \\
-  --bind /work/submit \\
-  --bind /scratch/submit \\
-  --bind /ceph/submit \\
-  /work/submit/abelley/work/kshell/kshell.sif """
+    kshell_params['scratch_directory'] = f"/work/submit/{username}/work/test_3/"
+    kshell_params['run_cmd'] = """
+mpirun -np $SLURM_NTASKS """
     kshell_params['header'] = f"""#!/bin/bash
-#SBATCH --job-name=test
-#SBATCH --nodes=1
-#SBATCH --ntasks=1
+#SBATCH --job-name=test_kshell_{Nucl}_emax{e}_magic_%j
+#SBATCH --nodes=4
+#SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=10
-#SBATCH --output=/work/submit/abelley/results/kshell_log/outputs/{imsrg_params['ref']}_emax{imsrg_params['emax']}_magic_%j.txt
-#SBATCH --error=/work/submit/abelley/results/kshell_log/errors/{imsrg_params['ref']}_emax{imsrg_params['emax']}_magic_%j.txt
-#SBATCH --time=10:00 """
+#SBATCH --mem-per-cpu=1000M
+#SBATCH --time=0-01:00
+# ulimit -s unlimited
+module load mpi"""
 
 
     imsrg_params['header'] = f"""#!/bin/bash
@@ -98,8 +99,7 @@ srun apptainer exec \\
 #SBATCH --mem={m}
 
 cd $SLURM_SUBMIT_DIR
-export OMP_NUM_THREADS=24
-  """
+export OMP_NUM_THREADS=24"""
 
 
 
@@ -107,6 +107,6 @@ export OMP_NUM_THREADS=24
 #SBATCH --error=/work/submit/abelley/results/kshell_log/errors/{imsrg_params['ref']}_emax{imsrg_params['emax']}_magic_eval_%j.txt"""
 
     imsrg_submit = Utils(Nucl, [state, state], imsrg_params, kshell_params)
-    imsrg_submit.submit_all(file2b, file3b, f"{imsrg_submit.output_dir}/{imsrg_submit.filebase}_M1.csv", header_expvals = header_expvals, verbose=True, ops_rankJ=[1,1])
+    imsrg_submit.submit_all(file2b, file3b, f"{imsrg_submit.output_dir}/{imsrg_submit.filebase}_M1_test3.csv", header_expvals = header_expvals, verbose=True, ops_rankJ=[1,1])
     
   # count +=1 

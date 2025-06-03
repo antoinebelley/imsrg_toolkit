@@ -87,12 +87,12 @@ class KshellScript():
     self.Z, self.N, self.A = _ZNA_from_str(self.Nucl)
     self.header = " "
     self.output_directory =  f"/home/submit/{username}/results/kshell/"
-    self.scratch_directory = f"/work/submit/{username}/work/kshell/"
+    self.scratch_directory = f"/work/submit/{username}/work/test_3/"
     self.update_params(**kwargs)
     fn_snt_path = Path(fn_snt)
     self.filebase = fn_snt_path.name[:-4]
     self.fn_base = self.Nucl+ "_" + self.filebase
-    self.run_cmd = 'srun'
+    self.run_cmd = 'mpirun'
     self.fn_snt = fn_snt
 
 
@@ -206,58 +206,125 @@ class KshellWavefunctionScript(KshellScript):
     return (nf1, nf2)
 
 
-  def get_occupation(self, hw_ex=False):
+  # def get_occupation(self, hw_ex=False):
+  #   H = Operator()
+  #   H.read_operator_file(self.fn_snt,A=self.A)
+  #   logs = []
+  #   states = self.states.split(",")
+  #   for state in states:
+  #     str_state = state_string(self.states, self.A)
+  #     log = f"{self.scratch_directory}/log_{self.fn_base}_{str_state}.txt"
+  #     logs.append(log)
+  #   e_data = {}
+  #   Njpi = {}
+  #   hws = None
+  #   for log in logs:
+  #     if(not os.path.exists(log)):
+  #       print(f"{log} is not found")
+  #       continue
+  #     with open(log) as f:
+  #       for line in f:
+  #         if(not line): break
+  #         dat = line.split()
+  #         if(len(dat) < 2): continue
+  #         if(dat[1] == "<H>:"):
+  #           print(line)
+  #           n_eig= int(dat[0])
+  #           ene  = float(dat[2]) + H.get_0bme()
+  #           mtot = int(dat[6][:-2])
+  #           J = dat[6]
+  #           if(self.A%2==0): J = str(int(dat[6][:-2])//2)
+  #           prty = int(dat[8])
+  #           if(not (J,prty) in Njpi): Njpi[(J,prty)]=1
+  #           else: Njpi[(J,prty)]+=1
+  #           hws = None
+  #           while ene in e_data: ene += 0.000001
+  #         elif line.startswith("<Hcm>:"):
+  #           tt = int(dat[5][:-2])
+  #         elif line.startswith("<TT>:"):
+  #           tt = int(dat[3][:-2])
+  #         elif line.startswith("<p Nj>"):
+  #           plist = []
+  #           for i in range(len(dat)-2):
+  #             plist.append(float(dat[i+2]))
+  #         elif line.startswith("<n Nj>"):
+  #             nlist = []
+  #             for i in range(len(dat)-2):
+  #                 nlist.append(float(dat[i+2]))
+  #         if(hw_ex):
+  #           if line.startswith("hw:"):
+  #             hws = {}
+  #             for i in range(len(dat)-1):
+  #               hw, prob = dat[i+1].split(":")
+  #               hws[int(hw)] = float(prob)
+  #         if(hws!=None): e_data[ (J,prty,Njpi[(J,prty)]) ] = (ene, log, tt, plist, nlist, hws)
+  #         if(hws==None): e_data[ (J,prty,Njpi[(J,prty)]) ] = (ene, log, tt, plist, nlist)
+  #   return e_data
+
+  def get_occupation(self, logs=None, hw_ex=False):
     H = Operator()
     H.read_operator_file(self.fn_snt,A=self.A)
-    logs = []
-    states = self.states.split(",")
-    for state in states:
-      str_state = state_string(self.states, self.A)
-      log = f"{self.scratch_directory}/log_{self.fn_base}_{str_state}.txt"
-      logs.append(log)
+    if(logs==None):
+        logs = []
+        states = self.states.split(",")
+        for state in states:
+            state_str = state_string(self.states, self.A)
+            log = f"{self.scratch_directory}/log_{self.fn_base}_{state_str}.txt"
+            logs.append(log)
     e_data = {}
     Njpi = {}
     for log in logs:
-      if(not os.path.exists(log)):
-        print(f"{log} is not found")
-        continue
-      with open(log) as f:
-        for line in f:
-          line = line.strip()
-          dat = line.split()
-          if line.startswith("1  <H>:"):
-            n_eig= int(dat[0])
-            ene  = float(dat[2]) + H.get_0bme()
-            mtot = int(dat[6][:-2])
-            J = dat[6]
-            if(self.A%2==0): J = str(int(dat[6][:-2])//2)
-            prty = int(dat[8])
-            if(not (J,prty) in Njpi): Njpi[(J,prty)]=1
-            else: Njpi[(J,prty)]+=1
-            hws = None
-            while ene in e_data: ene += 0.000001
-          elif line.startswith("<Hcm>:"):
-            tt = int(dat[5][:-2])
-          elif line.startswith("<TT>:"):
-            tt = int(dat[3][:-2])
-          elif line.startswith("<p Nj>"):
-            plist = []
-            for i in range(len(dat)-2):
-              plist.append(float(dat[i+2]))
-          elif line.startswith("<n Nj>"):
-              nlist = []
-              for i in range(len(dat)-2):
-                  nlist.append(float(dat[i+2]))
-          if(hw_ex):
-            if line.startswith("hw:"):
-              hws = {}
-              for i in range(len(dat)-1):
-                hw, prob = dat[i+1].split(":")
-                hws[int(hw)] = float(prob)
-      if(hws!=None): e_data[ (J,prty,Njpi[(J,prty)]) ] = (ene, log, tt, plist, nlist, hws)
-      else: e_data[ (J,prty,Njpi[(J,prty)]) ] = (ene, log, tt, plist, nlist)
+        if(not os.path.exists(log)):
+            print(f"{log} is not found")
+            continue
+        f = open(log,"r")
+        while True:
+            line = f.readline()
+            if(not line): break
+            dat = line.split()
+            if(len(dat) < 2): continue
+            if(dat[1] == "<H>:"):
+                dat = line.split()
+                n_eig= int(dat[0])
+                ene  = float(dat[2]) + H.get_0bme()
+                mtot = int(dat[6][:-2])
+                J = dat[6]
+                if(self.A%2==0): J = str(int(dat[6][:-2])//2)
+                prty = int(dat[8])
+                if(not (J,prty) in Njpi): Njpi[(J,prty)]=1
+                else: Njpi[(J,prty)]+=1
+                hws = None
+                while ene in e_data: ene += 0.000001
+                line = f.readline()
+                dat = line.split()
+                if(dat[0]=="<Hcm>:"): tt = int(dat[5][:-2])
+                if(dat[0]=="<TT>:"): tt = int(dat[3][:-2])
+                line = f.readline()
+                data = line.split()
+                if(line[0:7] ==" <p Nj>"):
+                    plist = []
+                    for i in range(len(data)-2):
+                        plist.append(float(data[i+2]))
+                line = f.readline()
+                data = line.split()
+                if(line[0:7] ==" <n Nj>"):
+                    nlist = []
+                    for i in range(len(data)-2):
+                        nlist.append(float(data[i+2]))
+                if(hw_ex):
+                    while len(line)!=0:
+                        line = f.readline()
+                        data = line.split()
+                        if(line[0:4] ==" hw:"):
+                            hws = {}
+                            for i in range(len(data)-1):
+                                hw, prob = data[i+1].split(":")
+                                hws[int(hw)] = float(prob)
+                            break
+                if(hws!=None): e_data[ (J,prty,Njpi[(J,prty)]) ] = (ene, log, tt, plist, nlist, hws)
+                if(hws==None): e_data[ (J,prty,Njpi[(J,prty)]) ] = (ene, log, tt, plist, nlist)
+        f.close()
     return e_data
-
 
   def get_wf_index(self):
     jpn_to_idx = {}
@@ -303,6 +370,7 @@ class KshellWavefunctionScript(KshellScript):
     else:
       J = float(re.findall(r"[-+]?\d*\.*\d+", self.states)[0])
       m = int(2*J)
+      n_eigen = int(self.states[2:])
     str_state = state_string(self.states, self.A)
     if gen_partition and str_state[-1] == 'p':
       self.gen_partition(1)
@@ -329,7 +397,7 @@ class KshellWavefunctionScript(KshellScript):
       maxiter = 300
       mode_lv_hdd = 0
       mtot = {m}
-      n_eigen = 1
+      n_eigen = {n_eigen}
       n_restart_vec = 10
       &end
       EOF
