@@ -2,89 +2,87 @@ from imsrg_toolkit.kshell_utils import KshellToolkit
 from pathlib import Path
 import os
 from subprocess import run, PIPE
-
-from imsrg_toolkit.settings import username, ROOT_DIR
-
-class ImsrgParams():
-  def __init__(self, sampleID = None, **kwargs):
-    #### Here are the default parameters for the imsrg###
-    ### TODO add all IMSRG parameters in the params
-    #Paths to different directories that are used
-    #TODO update those from a config file
-    self.scratch_directory = f'/work/submit/{username}/work/imsrg/'
-    self.output_directory_base = f'/home/submit/{username}/results/'
-    self.file2b_directory = '/ceph/submit/data/group/ab-initio/me2j/'
-    self.file3b_directory  = '/ceph/submit/data/group/ab-initio/me3j/'
-
-    # Model space parameters
-    self.A = 6
-    self.emax = 2
-    self.E3max = 6
-    self.hw = 10
-    self.ref = 'He6'
-    self.valence_space = 'p-shell'
-    self.custom_valence_space = None
-
-    #2B interaction parameters
-    self.label = 'SampleDelta'
-    self.file2e1max = 14
-    self.file2e2max = 28
-    self.file2lmax = 14
-
-    #3B interaction parameters
-    self.file3e1max = 16
-    self.file3e2max = 32
-    self.file3e3max = 28
-    self.file3_format = 'no2b'
-    self.file3_precision = 'half'
-
-    #IMSRG solver parameters
-    self.method = 'magnus'
-    self.denominator_partitioning = 'Epstein_Nesbet'
-    self.eta_criterion = 1e-6
-    self.smax = 500
-    self.dsmax = 0.5
-    self.ds0 = 0.5
-    self.denominator_delta = 0
-    self.domega = 0.2
-    self.omega_norm_max = 0.25
-    self.ode_tolerance = 1e-6
-    self.core_generator = 'atan'
-    self.valence_space_generator = 'shell-model-atan'
-
-    #Operators parameters
-    self.opfiles = []
-    self.opnames = []
-    self.write_HO_ops = True
-    self.write_HF_ops = True
-
-    #If dictionay is given, update the attributes using the
-    #dictionary keys and values.
-    self.update_params(**kwargs)
-
-    #generate the file name for the snt file
-    self.output_dir = f"{self.output_directory_base}/{self.ref}/{self.label}/"
-    self.gen_filebase(sampleID)
-    self.intfile = f"{self.output_dir}/{self.filebase}"
-
-  def update_params(self, **kwargs):
-    for key, value in kwargs.items():
-      setattr(self, key, value)
+from imsrg_toolkit.settings import *
+from imsrg_toolkit.imsrg_params import *
 
 
-  def gen_filebase(self, sampleID = None):
-    if not sampleID:
-      self.filebase = f"{self.valence_space}_{self.label}_{self.ref}_{self.method}_e{self.emax}_E{self.E3max}_hw{self.hw}"
-    else:
-      self.filebase = f"{self.valence_space}_{self.label}_{sampleID}_{self.ref}_{self.method}_e{self.emax}_E{self.E3max}_hw{self.hw}"
+# @dataclass(frozen=False)
+# class ImsrgParams():
+#   #Paths for inputs and outputs
+#   scratch_directory: str = f'/work/submit/{username}/work/imsrg/'
+#   output_directory_base: str = f'/home/submit/{username}/results/'
+#   file2b_directory: str = INTERACTION_2B_PATH
+#   file3b_directory: str = INTERACTION_3B_PATH
+
+#   #Model space parameters
+#   A: int = 6
+#   emax: int = 2
+#   E3max: int = 6
+#   hw: int = 10
+#   ref: str = 'He6'
+#   valence_space: str = 'p-shell'
+#   custom_valence_space: str = None 
+
+#    #2B interaction parameters 
+#   label: str = 'SampleDelta'
+#   SampleID: str = None #This is for the interactions samples only
+#   file2e1max: int = 14
+#   file2e2max: int = 28
+#   file2lmax: int = 14    
+
+#   #3B interaction parameters
+#   file3e1max: int = 16
+#   file3e2max: int = 32
+#   file3e3max: int = 28
+#   file3_format: str = 'no2b'
+#   file3_precision: str = 'half'
+
+#   #Parameters for the BetaCM
+#   BetaCM: float = 0.0
+#   hwBetaCM: float = hw  # Negative value means use the frequency
+
+#   #IMSRG solver parameters
+#   basis : str = 'HF'
+#   method: str = 'magnus'
+#   denominator_partitioning: str = 'Epstein_Nesbet'
+#   eta_criterion: float = 1e-6
+#   smax: int = 500
+#   dsmax: float = 0.5
+#   ds0: float = 0.5
+#   denominator_delta: float = 0
+#   denominator_delta_orbit: str = None
+#   domega: float = 0.2
+#   omega_norm_max: float = 0.25
+#   ode_tolerance: float = 1e-6
+#   core_generator: str = 'atan'
+#   valence_space_generator: str = 'shell-model-atan'
+
+#   #Operators parameters
+#   opfiles: list = []
+#   opnames: list = []
+#   write_HO_ops: bool = True
+#   write_HF_ops: bool = True
+
+
+#   def gen_filebase(self):
+#     if not self.sampleID:
+#       self.filebase = f"{self.valence_space}_{self.label}_{self.ref}_{self.method}_e{self.emax}_E{self.E3max}_hw{self.hw}"
+#     else:
+#       self.filebase = f"{self.valence_space}_{self.label}_{self.sampleID}_{self.ref}_{self.method}_e{self.emax}_E{self.E3max}_hw{self.hw}"
+
+#   def __post_init__(self):
+#     #generate the file name for the snt file
+#     self.output_dir = f"{self.output_directory_base}/{self.ref}/{self.label}/"
+#     self.gen_filebase(self.sampleID)
+#     self.intfile = f"{self.output_dir}/{self.filebase}"
 
 
 class Utils():
-  def __init__(self, Nucl, state_list, imsrg_params, kshell_params, SampleID=None, Nucl_daughter=None, submit_cmd='sbatch', HF=False):
+  def __init__(self, Nucl, state_list, imsrg_params, kshell_params, Nucl_daughter=None, submit_cmd='sbatch', HF=False):
     self.imsrg_params = imsrg_params
     self.HF = HF
     self.module_path = ROOT_DIR
-    pars = ImsrgParams(SampleID,**imsrg_params)
+    pars = ImsrgParams(**imsrg_params)
     fn_snt = pars.intfile
     self.opnames = pars.opnames
     self.opfiles = pars.opfiles
@@ -141,10 +139,10 @@ class Utils():
     return fn_pyimsrg
 
 
-  def gen_imsrg_python_script_combine_delta(self, LECs, sampleID):
+  def gen_imsrg_python_script_combine_delta(self):
     fn_pyimsrg = self.scratch_directory+self.fn_py
     script = self.write_script_header()
-    script += f"imsrg.run_combine_delta({LECs}, {sampleID},  HF = {self.HF})\n"
+    script += f"imsrg.run_combine_delta(HF = {self.HF})\n"
     script = self.add_kshell_partition(script)
     f = open(fn_pyimsrg, "w")
     f.write(script)
@@ -194,9 +192,9 @@ class Utils():
     return fn_script
 
 
-  def gen_imsrg_submit_script_combine_delta(self, LECs, sampleID):
+  def gen_imsrg_submit_script_combine_delta(self):
     fn_script = self.scratch_directory+self.fn_sh
-    python_script = self.gen_imsrg_python_script_combine_delta(LECs, sampleID)
+    python_script = self.gen_imsrg_python_script_combine_delta()
     self.write_submission_script(fn_script, python_script)
     return fn_script
 
@@ -213,8 +211,8 @@ class Utils():
     return self.submit_job(fn_sh, verbose=verbose)
 
 
-  def submit_imsrg_combine_delta(self, LECs, sampleID, verbose = True):
-    fn_sh = self.gen_imsrg_submit_script_combine_delta(LECs, sampleID)
+  def submit_imsrg_combine_delta(self, verbose = True):
+    fn_sh = self.gen_imsrg_submit_script_combine_delta()
     return self.submit_job(fn_sh, verbose=verbose)
 
 
@@ -238,7 +236,7 @@ class Utils():
     self.kshell.submit_all(fn_output, fn_ops, previous_jobid = imsrg_id, ops_rankJ = ops_rankJ, ops_rankP = ops_rankP, ops_rankZ = ops_rankZ, header = header_expvals, verbose=verbose)
 
 
-  def submit_all_combine_delta(self, LECs, sampleID, fn_output, ops_rankJ=None, ops_rankP=None, ops_rankZ=None,  header_expvals=None, verbose=False):
-    imsrg_id = self.submit_imsrg_combine_delta(LECs, sampleID, verbose=verbose)
+  def submit_all_combine_delta(self, fn_output, ops_rankJ=None, ops_rankP=None, ops_rankZ=None,  header_expvals=None, verbose=False):
+    imsrg_id = self.submit_imsrg_combine_delta(verbose=verbose)
     fn_ops = self.gen_oplist()
     self.kshell.submit_all(fn_output, fn_ops, previous_jobid = imsrg_id, ops_rankJ = ops_rankJ, ops_rankP = ops_rankP, ops_rankZ = ops_rankZ, header = header_expvals, verbose=verbose)

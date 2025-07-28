@@ -367,6 +367,7 @@ class KshellWavefunctionScript(KshellScript):
       m = 0
       if self.A%2 ==1:
         m = 1
+      n_eigen = int(self.states[1:])
     else:
       J = float(re.findall(r"[-+]?\d*\.*\d+", self.states)[0])
       m = int(2*J)
