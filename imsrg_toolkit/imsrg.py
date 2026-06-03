@@ -266,6 +266,12 @@ class Imsrg(ImsrgParams):
       op = op.DoNormalOrdering()
       #If 3f2, Factorized double commutators should arleady be set
       #to True.
+      if self.approx == 'imsrg3f2' and op.GetJRank() == 0:
+        Commutator.FactorizedDoubleCommutator.SetUse_1b_Intermediates(True)
+        Commutator.FactorizedDoubleCommutator.SetUse_2b_Intermediates(True)
+      else:
+        Commutator.FactorizedDoubleCommutator.SetUse_1b_Intermediates(False)
+        Commutator.FactorizedDoubleCommutator.SetUse_2b_Intermediates(False)
       op = self.imsrgsolver.Transform(op)
       op = op.UndoNormalOrdering()
       op = op.DoNormalOrderingCore()
