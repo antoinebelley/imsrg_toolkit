@@ -287,6 +287,17 @@ class Utils():
     self.kshell.submit_all(fn_output, fn_ops, previous_jobid = imsrg_id, ops_rankJ = ops_rankJ, ops_rankP = ops_rankP, ops_rankZ = ops_rankZ, header = header_expvals, verbose=verbose)
 
 
+  def gen_scripts_combine_delta(self, fn_output, ops_rankJ=None, ops_rankP=None, ops_rankZ=None, header_expvals=None):
+    """Generate all per-sample scripts (imsrg, diag, density, expvals) without
+    submitting them, so they can be submitted as chained job arrays
+    (see imsrg_toolkit.job_array)."""
+    fn_sh = self.gen_imsrg_submit_script_combine_delta()
+    fn_ops = self.gen_oplist()
+    scripts = {'imsrg': [fn_sh]}
+    scripts.update(self.kshell.gen_scripts(fn_output, fn_ops, ops_rankJ=ops_rankJ, ops_rankP=ops_rankP, ops_rankZ=ops_rankZ, header=header_expvals))
+    return scripts
+
+
   def submit_all_combine_delta(self, fn_output, ops_rankJ=None, ops_rankP=None, ops_rankZ=None,  header_expvals=None, verbose=False):
     imsrg_id = self.submit_imsrg_combine_delta(verbose=verbose)
     fn_ops = self.gen_oplist()

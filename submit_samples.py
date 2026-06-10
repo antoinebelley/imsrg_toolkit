@@ -1,11 +1,13 @@
 import sys
-# from imsrg_toolkit.imsrg import Imsrg
-from imsrg_toolkit.kshell_utils import KshellWavefunctionScript, KshellDensityScript, KshellToolkit
+import os
+
+FILE2_THIS_FILE = os.path.abspath(__file__)
+sys.path.append(os.path.dirname(FILE2_THIS_FILE))
 from imsrg_toolkit.utils import Utils
+from imsrg_toolkit.job_array import JobArrayChain
 from imsrg_toolkit.settings import username, ROOT_DIR
 import numpy as np
 import pandas as pd
-import os
 from pathlib import Path
 
 #for O14
@@ -14,6 +16,10 @@ from pathlib import Path
 #emax=8 can request 1:00 with 16G
 #emax=10 can request 6:00 with 50G
 
+# Use 'python3 submit_samples.py --dry-run' to generate everything without submitting
+DRY_RUN = '--dry-run' in sys.argv
+# Limit how many array tasks run simultaneously (None = no limit)
+MAX_CONCURRENT = None
 
 ##########PARAMETERS TO CHANGE BEFORE RUN###################
 # emax = [8]
@@ -26,6 +32,7 @@ imsrg_log_path = f"/work/submit/{username}/results/imsrg_log/outputs/"
 imsrg_error_path = f"/work/submit/{username}/results/imsrg_log/errors/"
 kshell_log_path = f"/work/submit/{username}/results/kshell_log/outputs/"
 kshell_error_path = f"/work/submit/{username}/results/kshell_log/errors/"
+array_script_dir = f"/work/submit/{username}/work/job_arrays/"
 mass =  [27]
 Nucleus = "Al"
 
@@ -67,6 +74,12 @@ for A in mass:
     imsrg_params['ref'] = Nucl
     imsrg_params['valence_space'] = vs # this is just a label when custom_valence_space is set
     imsrg_params['label'] = 'SampleDelta'
+    # Resources come from the job-array headers below; this only sets
+    # up the environment of each task.
+    imsrg_params['header'] = (
+        "#!/bin/bash\n"
+        "export OMP_NUM_THREADS=24\n"
+    )
     imsrg_params['run_cmd'] = """\
   srun apptainer exec \\
     --bind /home/submit \\
@@ -76,6 +89,8 @@ for A in mass:
     /work/submit/abelley/pyimsrg.sif """
 
     kshell_params = {}
+    kshell_params['scratch_directory'] = f"/work/submit/{username}/work/test3/"
+    kshell_params['header'] = "#!/bin/bash\n"
     kshell_params['run_cmd'] = """\
   srun apptainer exec \\
     --bind /home/submit \\
@@ -83,40 +98,67 @@ for A in mass:
     --bind /scratch/submit \\
     --bind /ceph/submit \\
     /work/submit/abelley/work/kshell/kshell.sif """
-    
+
+    # One job array per stage (one task per sample), chained with
+    # aftercorr dependencies, instead of 4 individual jobs per sample.
+    imsrg_array_header = (
+        f"#SBATCH --job-name={Nucl}_e{e}_imsrg\n"
+        f"#SBATCH --nodes=1\n"
+        f"#SBATCH --ntasks=1\n"
+        f"#SBATCH --cpus-per-task=24\n"
+        f"#SBATCH --output={imsrg_log_path}/{Nucl}_emax{e}_imsrg_%A_%a.txt\n"
+        f"#SBATCH --error={imsrg_error_path}/{Nucl}_emax{e}_imsrg_%A_%a.txt\n"
+        f"#SBATCH --time={t}\n"
+        f"#SBATCH --mem={m}\n"
+    )
+    diag_array_header = (
+        f"#SBATCH --job-name=kshell_{Nucl}_e{e}_diag\n"
+        f"#SBATCH --nodes=1\n"
+        f"#SBATCH --ntasks=1\n"
+        f"#SBATCH --cpus-per-task=10\n"
+        f"#SBATCH --output={kshell_log_path}/{Nucl}_emax{e}_diag_%A_%a.txt\n"
+        f"#SBATCH --error={kshell_error_path}/{Nucl}_emax{e}_diag_%A_%a.txt\n"
+        f"#SBATCH --time=00:30:00\n"
+    )
+    density_array_header = (
+        f"#SBATCH --job-name=kshell_{Nucl}_e{e}_density\n"
+        f"#SBATCH --nodes=1\n"
+        f"#SBATCH --ntasks=1\n"
+        f"#SBATCH --cpus-per-task=10\n"
+        f"#SBATCH --output={kshell_log_path}/{Nucl}_emax{e}_density_%A_%a.txt\n"
+        f"#SBATCH --error={kshell_error_path}/{Nucl}_emax{e}_density_%A_%a.txt\n"
+        f"#SBATCH --time=00:30:00\n"
+    )
+    expvals_array_header = (
+        f"#SBATCH --job-name={Nucl}_e{e}_expvals\n"
+        f"#SBATCH --output={kshell_log_path}/{Nucl}_emax{e}_expvals_%A_%a.txt\n"
+        f"#SBATCH --error={kshell_error_path}/{Nucl}_emax{e}_expvals_%A_%a.txt\n"
+    )
+
+    chain = JobArrayChain(f"{Nucl}_e{e}_hw{imsrg_params['hw']}", array_script_dir)
+    kshell_workdir = kshell_params['scratch_directory']
+    stages = {
+        'imsrg': chain.new_stage('imsrg', imsrg_array_header, workdir=kshell_workdir),
+        'diag': chain.new_stage('diag', diag_array_header, workdir=kshell_workdir),
+        'density': chain.new_stage('density', density_array_header, workdir=kshell_workdir),
+        'expvals': chain.new_stage('expvals', expvals_array_header, workdir=kshell_workdir),
+    }
 
     for i in index:
       sample = df.iloc[i]
       SampleID = int(sample["SampleID"])
       weights = list(sample[LECs])
+      print("generated scripts for sample #", SampleID)
 
-      imsrg_params['header'] = f"""#!/bin/bash
-#SBATCH --job-name={imsrg_params['ref']}_emax{imsrg_params['emax']}_Sample{SampleID}_%j
-#SBATCH --nodes=1
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=24
-#SBATCH --output={imsrg_log_path}/{imsrg_params['ref']}_emax{imsrg_params['emax']}_Sample{SampleID}_%j.txt
-#SBATCH --error={imsrg_error_path}/{imsrg_params['ref']}_emax{imsrg_params['emax']}_Sample{SampleID}_%j.txt
-#SBATCH --time={t}
-#SBATCH --mem={m}
+      imsrg_params['SampleID'] = SampleID
+      imsrg_params['LECs'] = weights
 
-cd $SLURM_SUBMIT_DIR
-export OMP_NUM_THREADS=24
-"""
-      kshell_params['header'] = f"""#!/bin/bash
-#SBATCH --job-name=kshell_{imsrg_params['ref']}_emax{imsrg_params['emax']}_Sample{SampleID}_%j
-#SBATCH --nodes=1
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=10
-#SBATCH --output={kshell_log_path}/{imsrg_params['ref']}_emax{imsrg_params['emax']}_Sample{SampleID}%j.txt
-#SBATCH --error={kshell_error_path}/{imsrg_params['ref']}_emax{imsrg_params['emax']}_Sample{SampleID}%j.txt
-#SBATCH --time=00:30:00 
-"""
+      imsrg_submit = Utils(Nucl, [state, state], imsrg_params, kshell_params)
+      scripts = imsrg_submit.gen_scripts_combine_delta(
+          f"{imsrg_submit.output_dir}/{imsrg_submit.filebase}_R2p.csv",
+          ops_rankJ=[0]
+      )
+      for stage_name, stage in stages.items():
+        stage.add_task(SampleID, scripts[stage_name])
 
-
-
-      header_expvals = f"""#SBATCH --output={kshell_log_path}/{imsrg_params['ref']}_emax{imsrg_params['emax']}_Sample{SampleID}_eval_%j.txt
-#SBATCH --error={kshell_error_path}/{imsrg_params['ref']}_emax{imsrg_params['emax']}_Sample{SampleID}_eval_%j.txt"""
-
-      imsrg_submit = Utils(Nucl, [state, state], imsrg_params, kshell_params, SampleID=SampleID)
-      imsrg_submit.submit_all_combine_delta(weights, SampleID, f"{imsrg_submit.output_dir}/{imsrg_submit.filebase}_R2p.csv", header_expvals = header_expvals)
+    chain.submit(max_concurrent=MAX_CONCURRENT, dry_run=DRY_RUN)
