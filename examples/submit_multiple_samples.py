@@ -12,9 +12,9 @@ from pathlib import Path
 
 # Use 'python3 submit_multiple_samples.py --dry-run' to generate everything
 # without submitting
-DRY_RUN = '--dry-run' in sys.argv
-# Limit how many array tasks run simultaneously (None = no limit)
-MAX_CONCURRENT = None
+# DRY_RUN = '--dry-run' in sys.argv
+# # Limit how many array tasks run simultaneously (None = no limit)
+# MAX_CONCURRENT = None
 
 LECs = ['Ct1S0pp','Ct1S0np','Ct1S0nn','Ct3S1','C1S0','C3P0','C1P1','C3P1','C3S1','CE1','C3P2','c1','c2','c3','c4','cD','cE']
 df = pd.read_csv(f"{ROOT_DIR}/data/8000Samples.txt")
@@ -61,7 +61,7 @@ for A, state in zip(As,states):
   imsrg_params['opnames_decay'] = ['M0nu_GT_2.74_none']
   # imsrg_params['opfiles'] = opfiles = [['/work/submit/abelley/operators/M1_2BC_bare_hw10_emax12_e2max24.me2j.gz',"M1_2BC"]]
   imsrg_params['ref'] = Nucl
-  imsrg_params['valence_space'] = '0hw-shell' # this is just a label when custom_valence_space is set
+  imsrg_params['valence_space'] = 'p-shell' # this is just a label when custom_valence_space is set
   # imsrg_params['valence_space'] = 'PsdNsdfp-shell' # this is just a label when custom_valence_space is set
   # imsrg_params['custom_valence_space'] = "O16,p0d5,p0d3,p1s1,n0d5,n0d3,n1s1,n0f7,n1p3"
   imsrg_params['label'] = 'SampleDelta'
@@ -86,50 +86,6 @@ mpirun -np $SLURM_NTASKS"""
 
   for e, t, mem in zip(emax, time, memory):
     imsrg_params['emax'] = e
-
-    # # One job array per stage (one task per sample), chained with
-    # # aftercorr dependencies, instead of 4 individual jobs per sample.
-    # imsrg_array_header = (
-    #     f"#SBATCH --job-name={Nucl}_e{e}_imsrg\n"
-    #     f"#SBATCH --nodes=1\n"
-    #     f"#SBATCH --ntasks=1\n"
-    #     f"#SBATCH --output={imsrg_log_path}/{Nucl}_emax{e}_imsrg_%A_%a.txt\n"
-    #     f"#SBATCH --error={imsrg_error_path}/{Nucl}_emax{e}_imsrg_%A_%a.txt\n"
-    #     f"#SBATCH --time={t}\n"
-    #     f"#SBATCH --mem={mem}\n"
-    # )
-    # diag_array_header = (
-    #     f"#SBATCH --job-name=kshell_{Nucl}_e{e}_diag\n"
-    #     f"#SBATCH --nodes=1\n"
-    #     f"#SBATCH --ntasks=1\n"
-    #     f"#SBATCH --cpus-per-task=10\n"
-    #     f"#SBATCH --output={kshell_log_path}/{Nucl}_emax{e}_diag_%A_%a.txt\n"
-    #     f"#SBATCH --error={kshell_error_path}/{Nucl}_emax{e}_diag_%A_%a.txt\n"
-    #     f"#SBATCH --time=30:00\n"
-    # )
-    # density_array_header = (
-    #     f"#SBATCH --job-name=kshell_{Nucl}_e{e}_density\n"
-    #     f"#SBATCH --nodes=1\n"
-    #     f"#SBATCH --ntasks=1\n"
-    #     f"#SBATCH --cpus-per-task=10\n"
-    #     f"#SBATCH --output={kshell_log_path}/{Nucl}_emax{e}_density_%A_%a.txt\n"
-    #     f"#SBATCH --error={kshell_error_path}/{Nucl}_emax{e}_density_%A_%a.txt\n"
-    #     f"#SBATCH --time=30:00\n"
-    # )
-    # expvals_array_header = (
-    #     f"#SBATCH --job-name={Nucl}_e{e}_expvals\n"
-    #     f"#SBATCH --output={kshell_log_path}/{Nucl}_emax{e}_expvals_%A_%a.txt\n"
-    #     f"#SBATCH --error={kshell_error_path}/{Nucl}_emax{e}_expvals_%A_%a.txt\n"
-    # )
-
-    # chain = JobArrayChain(f"{Nucl}_e{e}_hw{imsrg_params['hw']}", array_script_dir)
-    # kshell_workdir = kshell_params['scratch_directory']
-    # stages = {
-    #     'imsrg': chain.new_stage('imsrg', imsrg_array_header, workdir=kshell_workdir),
-    #     'diag': chain.new_stage('diag', diag_array_header, workdir=kshell_workdir),
-    #     'density': chain.new_stage('density', density_array_header, workdir=kshell_workdir),
-    #     'expvals': chain.new_stage('expvals', expvals_array_header, workdir=kshell_workdir),
-    # }
 
     for i in index:
       sample = df.iloc[i]
@@ -183,6 +139,7 @@ module load mpi """
       imsrg_submit.submit_all_combine_delta(f"{imsrg_submit.output_dir}/{imsrg_submit.filebase}_decay_test.csv", 
                                             header_expvals = header_expvals,
                                             ops_rankJ = [0], ops_rankZ_decay=[2], verbose=True)
+
   # fn_ops = [f"{imsrg_submit.output_dir}{imsrg_submit.filebase}_{op}.snt" for op in imsrg_submit.opnames]
   # tmp = [f"{imsrg_submit.output_dir}{imsrg_submit.filebase}_{op[1]}.snt" for op in imsrg_submit.opfiles]
   # fn_ops.extend(tmp)

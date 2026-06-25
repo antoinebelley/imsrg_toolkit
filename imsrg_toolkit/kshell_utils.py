@@ -99,20 +99,23 @@ class KshellScript():
 
   def update_params(self, **kwargs):
     for key, value in kwargs.items():
-      setattr(self, key, value)
+      if key != 'Nucl':
+        setattr(self, key, value)
     self.Z, self.N, self.A = _ZNA_from_str(self.Nucl)
 
 
 
 
 class KshellWavefunctionScript(KshellScript):
-  def __init__(self, fn_snt, **kwargs):
+  def __init__(self, fn_snt, Nucl, **kwargs):
     super().__init__(fn_snt, **kwargs)
     #TODO make it so we can actually pass many states as inputs
     self.states = "+1"
     self.hw_truncation = None
     self.ph_truncation = None
+    self.Nucl = Nucl
     self.update_params(**kwargs)
+    self.fn_base = self.Nucl+ "_" + self.filebase
     fn_ptn = self.scratch_directory + self.fn_base
     if "+" in self.states:
       fn_ptn += "_p"
@@ -120,6 +123,7 @@ class KshellWavefunctionScript(KshellScript):
       fn_ptn += "_n"
     fn_ptn += ".ptn"
     self.fn_ptn = fn_ptn
+    
 
 
   def read_comment_skip(self, fp):
@@ -172,6 +176,7 @@ class KshellWavefunctionScript(KshellScript):
   def element2nf(self):
     digits = []
     letters = []
+    print(self.Nucl)
     for char in self.Nucl:
       if char.isdigit():
         digits.append(char)
