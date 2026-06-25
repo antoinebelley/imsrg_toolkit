@@ -135,7 +135,6 @@ mpirun -np $SLURM_NTASKS"""
       sample = df.iloc[i]
       SampleID = int(sample["SampleID"])
       weights = list(sample[LECs])
-      print("generated scripts for sample #", SampleID)
 
   # for i, sample in enumerate(samples):
   #   sample = df.iloc[i]

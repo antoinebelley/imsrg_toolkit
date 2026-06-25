@@ -555,7 +555,7 @@ class KshellToolkit():
         parity = 1
       else:
         parity = -1
-      self.kshell_bra.gen_parititon(parity)
+      self.kshell_bra.gen_partition(parity)
 
 
   def submit_diag(self, gen_partition=True, previous_jobid = -1, verbose = False):
