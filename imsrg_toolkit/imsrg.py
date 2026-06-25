@@ -35,7 +35,8 @@ class Imsrg(ImsrgParams):
     self.imsrgsolver.SetDsmax(self.dsmax)
     self.imsrgsolver.SetDs(self.ds0)
     self.imsrgsolver.SetDenominatorDelta(self.denominator_delta)
-    self.imsrgsolver.SetDenominatorDeltaOrbit(self.denominator_delta_orbit)
+    if self.denominator_delta_orbit!='none':
+      self.imsrgsolver.SetDenominatorDeltaOrbit(self.denominator_delta_orbit)
     self.imsrgsolver.SetdOmega(self.domega)
     self.imsrgsolver.SetOmegaNormMax(self.omega_norm_max)
     self.imsrgsolver.SetODETolerance(self.ode_tolerance)
