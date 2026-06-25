@@ -87,49 +87,49 @@ mpirun -np $SLURM_NTASKS"""
   for e, t, mem in zip(emax, time, memory):
     imsrg_params['emax'] = e
 
-    # One job array per stage (one task per sample), chained with
-    # aftercorr dependencies, instead of 4 individual jobs per sample.
-    imsrg_array_header = (
-        f"#SBATCH --job-name={Nucl}_e{e}_imsrg\n"
-        f"#SBATCH --nodes=1\n"
-        f"#SBATCH --ntasks=1\n"
-        f"#SBATCH --output={imsrg_log_path}/{Nucl}_emax{e}_imsrg_%A_%a.txt\n"
-        f"#SBATCH --error={imsrg_error_path}/{Nucl}_emax{e}_imsrg_%A_%a.txt\n"
-        f"#SBATCH --time={t}\n"
-        f"#SBATCH --mem={mem}\n"
-    )
-    diag_array_header = (
-        f"#SBATCH --job-name=kshell_{Nucl}_e{e}_diag\n"
-        f"#SBATCH --nodes=1\n"
-        f"#SBATCH --ntasks=1\n"
-        f"#SBATCH --cpus-per-task=10\n"
-        f"#SBATCH --output={kshell_log_path}/{Nucl}_emax{e}_diag_%A_%a.txt\n"
-        f"#SBATCH --error={kshell_error_path}/{Nucl}_emax{e}_diag_%A_%a.txt\n"
-        f"#SBATCH --time=30:00\n"
-    )
-    density_array_header = (
-        f"#SBATCH --job-name=kshell_{Nucl}_e{e}_density\n"
-        f"#SBATCH --nodes=1\n"
-        f"#SBATCH --ntasks=1\n"
-        f"#SBATCH --cpus-per-task=10\n"
-        f"#SBATCH --output={kshell_log_path}/{Nucl}_emax{e}_density_%A_%a.txt\n"
-        f"#SBATCH --error={kshell_error_path}/{Nucl}_emax{e}_density_%A_%a.txt\n"
-        f"#SBATCH --time=30:00\n"
-    )
-    expvals_array_header = (
-        f"#SBATCH --job-name={Nucl}_e{e}_expvals\n"
-        f"#SBATCH --output={kshell_log_path}/{Nucl}_emax{e}_expvals_%A_%a.txt\n"
-        f"#SBATCH --error={kshell_error_path}/{Nucl}_emax{e}_expvals_%A_%a.txt\n"
-    )
+    # # One job array per stage (one task per sample), chained with
+    # # aftercorr dependencies, instead of 4 individual jobs per sample.
+    # imsrg_array_header = (
+    #     f"#SBATCH --job-name={Nucl}_e{e}_imsrg\n"
+    #     f"#SBATCH --nodes=1\n"
+    #     f"#SBATCH --ntasks=1\n"
+    #     f"#SBATCH --output={imsrg_log_path}/{Nucl}_emax{e}_imsrg_%A_%a.txt\n"
+    #     f"#SBATCH --error={imsrg_error_path}/{Nucl}_emax{e}_imsrg_%A_%a.txt\n"
+    #     f"#SBATCH --time={t}\n"
+    #     f"#SBATCH --mem={mem}\n"
+    # )
+    # diag_array_header = (
+    #     f"#SBATCH --job-name=kshell_{Nucl}_e{e}_diag\n"
+    #     f"#SBATCH --nodes=1\n"
+    #     f"#SBATCH --ntasks=1\n"
+    #     f"#SBATCH --cpus-per-task=10\n"
+    #     f"#SBATCH --output={kshell_log_path}/{Nucl}_emax{e}_diag_%A_%a.txt\n"
+    #     f"#SBATCH --error={kshell_error_path}/{Nucl}_emax{e}_diag_%A_%a.txt\n"
+    #     f"#SBATCH --time=30:00\n"
+    # )
+    # density_array_header = (
+    #     f"#SBATCH --job-name=kshell_{Nucl}_e{e}_density\n"
+    #     f"#SBATCH --nodes=1\n"
+    #     f"#SBATCH --ntasks=1\n"
+    #     f"#SBATCH --cpus-per-task=10\n"
+    #     f"#SBATCH --output={kshell_log_path}/{Nucl}_emax{e}_density_%A_%a.txt\n"
+    #     f"#SBATCH --error={kshell_error_path}/{Nucl}_emax{e}_density_%A_%a.txt\n"
+    #     f"#SBATCH --time=30:00\n"
+    # )
+    # expvals_array_header = (
+    #     f"#SBATCH --job-name={Nucl}_e{e}_expvals\n"
+    #     f"#SBATCH --output={kshell_log_path}/{Nucl}_emax{e}_expvals_%A_%a.txt\n"
+    #     f"#SBATCH --error={kshell_error_path}/{Nucl}_emax{e}_expvals_%A_%a.txt\n"
+    # )
 
-    chain = JobArrayChain(f"{Nucl}_e{e}_hw{imsrg_params['hw']}", array_script_dir)
-    kshell_workdir = kshell_params['scratch_directory']
-    stages = {
-        'imsrg': chain.new_stage('imsrg', imsrg_array_header, workdir=kshell_workdir),
-        'diag': chain.new_stage('diag', diag_array_header, workdir=kshell_workdir),
-        'density': chain.new_stage('density', density_array_header, workdir=kshell_workdir),
-        'expvals': chain.new_stage('expvals', expvals_array_header, workdir=kshell_workdir),
-    }
+    # chain = JobArrayChain(f"{Nucl}_e{e}_hw{imsrg_params['hw']}", array_script_dir)
+    # kshell_workdir = kshell_params['scratch_directory']
+    # stages = {
+    #     'imsrg': chain.new_stage('imsrg', imsrg_array_header, workdir=kshell_workdir),
+    #     'diag': chain.new_stage('diag', diag_array_header, workdir=kshell_workdir),
+    #     'density': chain.new_stage('density', density_array_header, workdir=kshell_workdir),
+    #     'expvals': chain.new_stage('expvals', expvals_array_header, workdir=kshell_workdir),
+    # }
 
     for i in index:
       sample = df.iloc[i]
