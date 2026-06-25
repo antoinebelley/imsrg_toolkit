@@ -539,11 +539,11 @@ class KshellToolkit():
       self.density_script = KshellDensityScript(fn_snt, Nucl = Nucl, Nucl_daughter=Nucl, state_list=state_list, **kwargs)
       self.density_script_decay = KshellDensityScript(fn_snt, Nucl_daughter = Nucl_daughter, Nucl = Nucl, state_list = state_list, **kwargs)
     fn_eval = self.kshell_bra.scratch_directory+self.kshell_bra.filebase+"_eval.py"
-    file_path = Path(fn_eval)
-    if file_path.exists(): os.remove(file_path)
-    fn_eval_decay = self.kshell_bra.scratch_directory+self.kshell_bra.filebase+"_decay_eval.py"
-    file_path_decay = Path(fn_eval_decay)
-    if file_path_decay.exists(): os.remove(file_path_decay)
+    # file_path = Path(fn_eval)
+    # if file_path.exists(): os.remove(file_path)
+    # fn_eval_decay = self.kshell_bra.scratch_directory+self.kshell_bra.filebase+"_decay_eval.py"
+    # file_path_decay = Path(fn_eval_decay)
+    # if file_path_decay.exists(): os.remove(file_path_decay)
     self.outputs = []
     
 
@@ -626,12 +626,15 @@ class KshellToolkit():
       if op_decay:
         kshell_bra = self.kshell_bra
         kshell_ket = self.kshell_ket
+        fn_script = self.density_script_decay.fn_density
       else: 
         kshell_bra = self.kshell_ket
         kshell_ket = self.kshell_ket
+        fn_script = self.density_script.fn_density
     else:
       kshell_bra = self.kshell_bra
       kshell_ket = self.kshell_ket
+      fn_script = self.density_script.fn_density
     if kshell_bra.A < kshell_ket.A or kshell_bra.Z < kshell_ket.Z:
       kshell_bra, kshell_ket = kshell_ket, kshell_bra
     wf_index_bra = kshell_bra.get_wf_index()
@@ -651,10 +654,10 @@ class KshellToolkit():
       elif Pket == -1 : Pket = "-"
       en_bra = energies_bra[(Jbra,Pbra,nn_bra)]
       en_ket = energies_ket[(Jket,Pket,nn_ket)]
-      Density = TransitionDensity(filename=self.density_script.fn_density, Jbra=Jfket, wflabel_bra=wf_index_bra[state_bra][-1], \
-                  Jket=Jfbra, wflabel_ket=wf_index_ket[state_ket][-1])
+      Density = TransitionDensity(filename=fn_script, Jbra=Jfbra, wflabel_bra=wf_index_bra[state_bra][-1], \
+                  Jket=Jfket, wflabel_ket=wf_index_ket[state_ket][-1])
       output = Density.eval(op)
-      output = [fn_op,self.Nucl_daughter,Jbra,Pbra,nn_bra,en_bra,self.Nucl,Jket,Pket,nn_ket,en_ket,*output]
+      output = [fn_op,kshell_bra.Nucl,Jbra,Pbra,nn_bra,en_bra,kshell_ket.Nucl,Jket,Pket,nn_ket,en_ket,*output]
       self.outputs.append(output)
 
 
