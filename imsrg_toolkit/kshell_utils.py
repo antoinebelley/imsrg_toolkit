@@ -776,9 +776,43 @@ class KshellToolkit():
       print(f'Submitted expvals with jobid {jobid}')
     return jobid
 
+  def gen_scripts(self, fn_output, fn_ops = [], ops_rankJ=None, ops_rankP=None, ops_rankZ=None, 
+                  gen_partition=False, header=None):
+    """Generate the diag/density/expvals scripts without submitting them.
+
+    Returns a dict mapping stage name to the list of scripts of that stage,
+    meant to be submitted as chained job arrays (see imsrg_toolkit.job_array).
+    """
+    if not os.path.exists(f'{self.kshell_ket.scratch_directory}/kshell.exe'):
+      copy(f'{self.module_path}/bin/kshell.exe', self.kshell_ket.scratch_directory)
+    if not os.path.exists(f'{self.kshell_ket.scratch_directory}/transit.exe'):
+      copy(f'{self.module_path}/bin/transit.exe', self.kshell_ket.scratch_directory)
+    if not os.path.exists(f'{self.kshell_ket.scratch_directory}/collect_logs.py'):
+      copy(f'{self.module_path}/bin/collect_logs.py', self.kshell_ket.scratch_directory)
+    if gen_partition:
+      self.gen_partition()
+    diag_scripts = [self.kshell_ket.gen_script()]
+    if self.Nucl != self.Nucl_daughter:
+      if gen_partition:
+        self.gen_partition(ket=False)
+      diag_scripts.append(self.kshell_bra.gen_script())
+    if self.Nucl_daughter != self.Nucl:
+      density_script = self.density_script.gen_script(self.kshell_ket.fn_ptn)
+    else:
+      density_script = self.density_script.gen_script(self.kshell_ket.fn_ptn, self.kshell_bra.fn_ptn)
+    scripts = {'diag': diag_scripts, 'density': [density_script]}
+    if len(fn_ops) > 0:
+      fn_eval = self.gen_expvals_script(fn_output, fn_ops, ops_rankJ=ops_rankJ, 
+                                        ops_rankP=ops_rankP, ops_rankZ=ops_rankZ, 
+                                        header=header)
+      scripts['expvals'] = [fn_eval]
+    return scripts
+
+
   def submit_all(self, fn_output, fn_ops = [], fn_ops_decay = [], ops_rankJ=None, ops_rankP=None, ops_rankZ=None, 
                  ops_rankJ_decay=None, ops_rankP_decay=None, ops_rankZ_decay=None, gen_partition=False,  
                  previous_jobid = -1, verbose = False, header=None):
+ 
     if not os.path.exists(f'{self.kshell_ket.scratch_directory}/kshell.exe'):
       copy(f'{self.module_path}/bin/kshell.exe', self.kshell_ket.scratch_directory)
     if not os.path.exists(f'{self.kshell_ket.scratch_directory}/transit.exe'):

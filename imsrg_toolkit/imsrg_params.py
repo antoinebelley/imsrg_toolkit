@@ -42,7 +42,7 @@ class ImsrgParams():
   dsmax: float = 0.5
   ds0: float = 0.5
   denominator_delta: float = 0
-  denominator_delta_orbit: str = None
+  denominator_delta_orbit: str = 'none'
   domega: float = 0.2
   omega_norm_max: float = 0.25
   ode_tolerance: float = 1e-6

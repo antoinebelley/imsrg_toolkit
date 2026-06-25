@@ -1,15 +1,23 @@
 import sys
-# from imsrg_toolkit.imsrg import Imsrg
-from imsrg_toolkit.kshell_utils import KshellWavefunctionScript, KshellDensityScript, KshellToolkit
+import os
+
+FILE2_THIS_FILE = os.path.abspath(__file__)
+sys.path.append(os.path.dirname(os.path.dirname(FILE2_THIS_FILE)))
 from imsrg_toolkit.utils import Utils
-from imsrg_toolkit.settings import username
+from imsrg_toolkit.job_array import JobArrayChain
+from imsrg_toolkit.settings import username, ROOT_DIR
 import numpy as np
 import pandas as pd
+from pathlib import Path
 
-
+# Use 'python3 submit_multiple_samples.py --dry-run' to generate everything
+# without submitting
+DRY_RUN = '--dry-run' in sys.argv
+# Limit how many array tasks run simultaneously (None = no limit)
+MAX_CONCURRENT = None
 
 LECs = ['Ct1S0pp','Ct1S0np','Ct1S0nn','Ct3S1','C1S0','C3P0','C1P1','C3P1','C3S1','CE1','C3P2','c1','c2','c3','c4','cD','cE']
-df = pd.read_csv("/work/submit/abelley/imsrg_toolkit/data/8000Samples.txt")
+df = pd.read_csv(f"{ROOT_DIR}/data/8000Samples.txt")
 
 
 index = np.array([1728])
@@ -29,6 +37,17 @@ samples_numbers = [1]
 # As = [26,27]
 states = ["0+1"]
 As = [6]
+
+imsrg_log_path = f"/work/submit/{username}/results/imsrg_log/outputs/"
+imsrg_error_path = f"/work/submit/{username}/results/imsrg_log/errors/"
+kshell_log_path = f"/work/submit/{username}/results/kshell_log/outputs/"
+kshell_error_path = f"/work/submit/{username}/results/kshell_log/errors/"
+array_script_dir = f"/work/submit/{username}/work/job_arrays/"
+
+Path(kshell_log_path).mkdir(parents=True, exist_ok=True)
+Path(kshell_error_path).mkdir(parents=True, exist_ok=True)
+Path(imsrg_log_path).mkdir(parents=True, exist_ok=True)
+Path(imsrg_error_path).mkdir(parents=True, exist_ok=True)
 
 for A, state in zip(As,states):
   Nucl = f"He{A}" 
@@ -60,18 +79,63 @@ srun apptainer exec \\
   kshell_params['scratch_directory'] = f"/work/submit/{username}/work/test_decay/"
   kshell_params['run_cmd'] = """\
 mpirun -np $SLURM_NTASKS"""
-  
-  for e, t, mem, num in zip(emax, time, memory, samples_numbers):
-    # index = np.array(df.index)
-    # rng = np.random.default_rng()
-    # index = rng.choice(index, num, replace=False, shuffle=False)
+  kshell_params['header'] = (
+      "#!/bin/bash\n"
+      "module load mpi\n"
+  )
+
+  for e, t, mem in zip(emax, time, memory):
     imsrg_params['emax'] = e
-    
-  
+
+    # One job array per stage (one task per sample), chained with
+    # aftercorr dependencies, instead of 4 individual jobs per sample.
+    imsrg_array_header = (
+        f"#SBATCH --job-name={Nucl}_e{e}_imsrg\n"
+        f"#SBATCH --nodes=1\n"
+        f"#SBATCH --ntasks=1\n"
+        f"#SBATCH --output={imsrg_log_path}/{Nucl}_emax{e}_imsrg_%A_%a.txt\n"
+        f"#SBATCH --error={imsrg_error_path}/{Nucl}_emax{e}_imsrg_%A_%a.txt\n"
+        f"#SBATCH --time={t}\n"
+        f"#SBATCH --mem={mem}\n"
+    )
+    diag_array_header = (
+        f"#SBATCH --job-name=kshell_{Nucl}_e{e}_diag\n"
+        f"#SBATCH --nodes=1\n"
+        f"#SBATCH --ntasks=1\n"
+        f"#SBATCH --cpus-per-task=10\n"
+        f"#SBATCH --output={kshell_log_path}/{Nucl}_emax{e}_diag_%A_%a.txt\n"
+        f"#SBATCH --error={kshell_error_path}/{Nucl}_emax{e}_diag_%A_%a.txt\n"
+        f"#SBATCH --time=30:00\n"
+    )
+    density_array_header = (
+        f"#SBATCH --job-name=kshell_{Nucl}_e{e}_density\n"
+        f"#SBATCH --nodes=1\n"
+        f"#SBATCH --ntasks=1\n"
+        f"#SBATCH --cpus-per-task=10\n"
+        f"#SBATCH --output={kshell_log_path}/{Nucl}_emax{e}_density_%A_%a.txt\n"
+        f"#SBATCH --error={kshell_error_path}/{Nucl}_emax{e}_density_%A_%a.txt\n"
+        f"#SBATCH --time=30:00\n"
+    )
+    expvals_array_header = (
+        f"#SBATCH --job-name={Nucl}_e{e}_expvals\n"
+        f"#SBATCH --output={kshell_log_path}/{Nucl}_emax{e}_expvals_%A_%a.txt\n"
+        f"#SBATCH --error={kshell_error_path}/{Nucl}_emax{e}_expvals_%A_%a.txt\n"
+    )
+
+    chain = JobArrayChain(f"{Nucl}_e{e}_hw{imsrg_params['hw']}", array_script_dir)
+    kshell_workdir = kshell_params['scratch_directory']
+    stages = {
+        'imsrg': chain.new_stage('imsrg', imsrg_array_header, workdir=kshell_workdir),
+        'diag': chain.new_stage('diag', diag_array_header, workdir=kshell_workdir),
+        'density': chain.new_stage('density', density_array_header, workdir=kshell_workdir),
+        'expvals': chain.new_stage('expvals', expvals_array_header, workdir=kshell_workdir),
+    }
+
     for i in index:
       sample = df.iloc[i]
       SampleID = int(sample["SampleID"])
       weights = list(sample[LECs])
+      print("generated scripts for sample #", SampleID)
 
   # for i, sample in enumerate(samples):
   #   sample = df.iloc[i]
