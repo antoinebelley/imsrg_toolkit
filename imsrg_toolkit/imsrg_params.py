@@ -51,6 +51,7 @@ class ImsrgParams():
   #Operators parameters
   opfiles: list[str] = field(default_factory=list)
   opnames: list[str] = field(default_factory=list)
+  opnames_decay: list[str] = field(default_factory=list)
   ops: list = field(default_factory=list)
   op_strings: list[str] = field(default_factory=list) #Name at the end of the snt file
   write_HO_ops: bool = True

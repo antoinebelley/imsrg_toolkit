@@ -86,13 +86,17 @@ class Utils():
     fn_snt = pars.intfile
     self.opnames = pars.opnames
     self.opfiles = pars.opfiles
+    self.opnames_decay = pars.opnames_decay
     self.output_dir = pars.output_dir
     fn_snt_path = Path(fn_snt)
     self.submit_cmd = submit_cmd
     if HF:
       fn_snt = fn_snt+"_HF"
     self.fn_snt = fn_snt+".snt"
-    self.kshell = KshellToolkit(self.fn_snt, Nucl, state_list, Nucl_daughter=Nucl_daughter, submit_cmd=submit_cmd,  **kshell_params)
+    decay_mixed = False
+    if len(pars.opnames_decay) > 0:
+      decay_mixed = True
+    self.kshell = KshellToolkit(self.fn_snt, Nucl, state_list, Nucl_daughter=Nucl_daughter, decay_mixed=decay_mixed, submit_cmd=submit_cmd,  **kshell_params)
     self.filebase = fn_snt_path.name
     self.fn_py = self.filebase+".py"
     self.fn_sh = self.filebase+".sh"
@@ -281,16 +285,30 @@ class Utils():
     return fn_ops
 
 
+  def gen_oplist_decay(self):
+    if self.HF:
+      fn_ops = [f"{self.output_dir}{self.filebase}_{op}_HF.snt" for op in self.opnames_decay]
+    else:
+      fn_ops = [f"{self.output_dir}{self.filebase}_{op}.snt" for op in self.opnames_decay]
+    return fn_ops
+
+
   def submit_all(self, file2b, file3b, fn_output, ops_rankJ=None, ops_rankP=None, ops_rankZ=None,  header_expvals=None, verbose=False):
     imsrg_id = self.submit_imsrg(file2b, file3b, verbose=verbose)
     fn_ops = self.gen_oplist()
     self.kshell.submit_all(fn_output, fn_ops, previous_jobid = imsrg_id, ops_rankJ = ops_rankJ, ops_rankP = ops_rankP, ops_rankZ = ops_rankZ, header = header_expvals, verbose=verbose)
 
 
-  def submit_all_combine_delta(self, fn_output, ops_rankJ=None, ops_rankP=None, ops_rankZ=None,  header_expvals=None, verbose=False):
+  def submit_all_combine_delta(self, fn_output, ops_rankJ=None, ops_rankP=None, ops_rankZ=None,
+                               ops_rankJ_decay=None, ops_rankP_decay=None, ops_rankZ_decay=None, 
+                               header_expvals=None, verbose=False):
     imsrg_id = self.submit_imsrg_combine_delta(verbose=verbose)
     fn_ops = self.gen_oplist()
-    self.kshell.submit_all(fn_output, fn_ops, previous_jobid = imsrg_id, ops_rankJ = ops_rankJ, ops_rankP = ops_rankP, ops_rankZ = ops_rankZ, header = header_expvals, verbose=verbose)
+    fn_ops_decay = self.gen_oplist_decay()
+    self.kshell.submit_all(fn_output, fn_ops, fn_ops_decay = fn_ops_decay, previous_jobid = imsrg_id, 
+                           ops_rankJ = ops_rankJ, ops_rankP = ops_rankP, ops_rankZ = ops_rankZ,
+                           ops_rankJ_decay = ops_rankJ_decay, ops_rankP_decay = ops_rankP_decay, ops_rankZ_decay = ops_rankZ_decay, 
+                           header = header_expvals, verbose=verbose)
   
 
   def submit_all_anapole(self, file2b, file3b, fn_output, ops_rankJ=None, ops_rankP=None, ops_rankZ=None,  header_expvals=None, verbose=False, staged=True, scale = 1000):

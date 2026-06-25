@@ -12,6 +12,7 @@ import itertools
 import pandas as pd
 from imsrg_toolkit.settings import ROOT_DIR
 from shutil import copy
+from copy import deepcopy
 
 
 
@@ -493,7 +494,7 @@ class KshellDensityScript(KshellScript):
 
 
 class KshellToolkit():
-  def __init__(self, fn_snt, Nucl, state_list, Nucl_daughter=None, submit_cmd='sbatch', **kwargs):
+  def __init__(self, fn_snt, Nucl, state_list, Nucl_daughter=None, decay_mixed=False, submit_cmd='sbatch', **kwargs):
     self.Nucl = Nucl
     self.Z, self.N, self.A = _ZNA_from_str(self.Nucl)
     self.fn_snt = fn_snt
@@ -501,16 +502,43 @@ class KshellToolkit():
     self.state_list = state_list
     self.params = kwargs
     self.module_path = ROOT_DIR
+    self.decay_mixed = decay_mixed
     self.kshell_ket = KshellWavefunctionScript(fn_snt, Nucl = Nucl, states=state_list[-1], **kwargs)
-    if Nucl_daughter != None:
+    if not decay_mixed:
+      if Nucl_daughter != None:
+        self.Nucl_daughter = Nucl_daughter
+        self.Z_daughter, self.N_daughter, self.A_daughter = _ZNA_from_str(self.Nucl_daughter)
+        params_daughter = deepcopy(kwargs)
+        if 'header_daughter' in self.params:
+          params_daughter.pop("header")
+          params_daughter['header'] = kwargs.pop("header_daughter")
+        self.kshell_bra = KshellWavefunctionScript(fn_snt, Nucl = Nucl_daughter, states=state_list[0], **params_daughter)
+        self.density_script = KshellDensityScript(fn_snt, Nucl_daughter = Nucl_daughter, Nucl = Nucl, state_list = state_list, **kwargs)
+      else:
+        self.Nucl_daughter = Nucl
+        self.kshell_bra = self.kshell_ket
+        self.density_script = KshellDensityScript(fn_snt, Nucl = Nucl, state_list=state_list, **kwargs)
+    else:
+      try:
+        assert(Nucl_daughter != None)
+      except AssertionError: 
+        print("No daughter nucleus or states list for the decay operators. Exiting...")
+        exit(0)
       self.Nucl_daughter = Nucl_daughter
       self.Z_daughter, self.N_daughter, self.A_daughter = _ZNA_from_str(self.Nucl_daughter)
-      self.kshell_bra = KshellWavefunctionScript(fn_snt, Nucl = Nucl_daughter, states=state_list[0], **kwargs)
-      self.density_script = KshellDensityScript(fn_snt, Nucl_daughter = Nucl_daughter, Nucl = Nucl, state_list = state_list, **kwargs)
-    else:
-      self.Nucl_daughter = Nucl
-      self.kshell_bra = self.kshell_ket
-      self.density_script = KshellDensityScript(fn_snt, Nucl = Nucl, state_list=state_list, **kwargs)
+      params_daughter = deepcopy(kwargs)
+      if 'header_daughter' in self.params:
+          params_daughter.pop("header")
+          params_daughter['header'] = kwargs.pop("header_daughter")
+      self.kshell_bra = KshellWavefunctionScript(fn_snt, Nucl = Nucl_daughter, states=state_list[0], **params_daughter)
+      self.density_script = KshellDensityScript(fn_snt, Nucl = Nucl, Nucl_daughter=Nucl, state_list=state_list, **kwargs)
+      self.density_script_decay = KshellDensityScript(fn_snt, Nucl_daughter = Nucl_daughter, Nucl = Nucl, state_list = state_list, **kwargs)
+    fn_eval = self.kshell_bra.scratch_directory+self.kshell_bra.filebase+"_eval.py"
+    file_path = Path(fn_eval)
+    if file_path.exists(): os.remove(file_path)
+    fn_eval_decay = self.kshell_bra.scratch_directory+self.kshell_bra.filebase+"_decay_eval.py"
+    file_path_decay = Path(fn_eval_decay)
+    if file_path_decay.exists(): os.remove(file_path_decay)
     self.outputs = []
     
 
@@ -555,28 +583,52 @@ class KshellToolkit():
       return [jobid_ket]
 
 
-  def submit_density(self, previous_jobids=-1, verbose = False):
-    if self.Nucl_daughter != self.Nucl:
-      fn_sh = self.density_script.gen_script(self.kshell_ket.fn_ptn)
-    else:
+  def submit_density(self, previous_jobids=-1, verbose = False, decay = False):
+    if not self.decay_mixed:
       fn_sh = self.density_script.gen_script(self.kshell_ket.fn_ptn, self.kshell_bra.fn_ptn)
-    if previous_jobids != -1:
-      previous_jobids = ':'.join(map(str, previous_jobids))
-      jobid_density = run([self.submit_cmd, '--parsable', f'--dependency=afterok:{previous_jobids}','--kill-on-invalid-dep=yes', fn_sh], stdout=PIPE, text=True).stdout.rstrip()
+      if previous_jobids != -1:
+        previous_jobids = ':'.join(map(str, previous_jobids))
+        jobid_density = run([self.submit_cmd, '--parsable', f'--dependency=afterok:{previous_jobids}','--kill-on-invalid-dep=yes', fn_sh], stdout=PIPE, text=True).stdout.rstrip()
+      else:
+        jobid_density = run([self.submit_cmd, '--parsable', fn_sh], stdout=PIPE, text=True).stdout.rstrip() 
+      if verbose:
+        print(f'Submitted density with jobid {jobid_density}')
     else:
-      jobid_density = run([self.submit_cmd, '--parsable', fn_sh], stdout=PIPE, text=True).stdout.rstrip() 
-    if verbose:
-      print(f'Submitted density with jobid {jobid_density}')
+      if not decay:
+        fn_sh = self.density_script.gen_script(self.kshell_ket.fn_ptn)
+        if previous_jobids != -1:
+          previous_jobids = ':'.join(map(str, previous_jobids))
+          jobid_density = run([self.submit_cmd, '--parsable', f'--dependency=afterok:{previous_jobids}','--kill-on-invalid-dep=yes', fn_sh], stdout=PIPE, text=True).stdout.rstrip()
+        else:
+          jobid_density = run([self.submit_cmd, '--parsable', fn_sh], stdout=PIPE, text=True).stdout.rstrip() 
+        if verbose:
+          print(f'Submitted density with jobid {jobid_density}')
+      else:
+        fn_sh = self.density_script_decay.gen_script(self.kshell_ket.fn_ptn, self.kshell_bra.fn_ptn)
+        if previous_jobids != -1:
+          previous_jobids = ':'.join(map(str, previous_jobids))
+          jobid_density = run([self.submit_cmd, '--parsable', f'--dependency=afterok:{previous_jobids}','--kill-on-invalid-dep=yes', fn_sh], stdout=PIPE, text=True).stdout.rstrip()
+        else:
+          jobid_density = run([self.submit_cmd, '--parsable', fn_sh], stdout=PIPE, text=True).stdout.rstrip() 
+        if verbose:
+          print(f'Submitted decay density with jobid {jobid_density}')
     return jobid_density
 
 
-  def calc_opexpvals(self, fn_op, op_rankJ = 0, op_rankP = 1, op_rankZ = 0):
+  def calc_opexpvals(self, fn_op, op_rankJ = 0, op_rankP = 1, op_rankZ = 0, op_decay=False):
     op = Operator(filename=fn_op, rankJ=op_rankJ, rankP=op_rankP, rankZ=op_rankZ)
-    if self.kshell_bra.A < self.kshell_ket.A or self.kshell_bra.Z < self.kshell_ket.Z:
-      kshell_bra, kshell_ket = self.kshell_ket, self.kshell_bra
+    if self.decay_mixed:
+      if op_decay:
+        kshell_bra = self.kshell_bra
+        kshell_ket = self.kshell_ket
+      else: 
+        kshell_bra = self.kshell_ket
+        kshell_ket = self.kshell_ket
     else:
       kshell_bra = self.kshell_bra
       kshell_ket = self.kshell_ket
+    if kshell_bra.A < kshell_ket.A or kshell_bra.Z < kshell_ket.Z:
+      kshell_bra, kshell_ket = kshell_ket, kshell_bra
     wf_index_bra = kshell_bra.get_wf_index()
     wf_index_ket = kshell_ket.get_wf_index()
     energies_bra = kshell_bra.summary_to_dictionary()
@@ -617,7 +669,7 @@ class KshellToolkit():
 
 
 
-  def gen_expvals_script(self, fn_output, fn_ops, ops_rankJ=None, ops_rankP=None, ops_rankZ=None, header=None):
+  def gen_expvals_script(self, fn_output, fn_ops, ops_rankJ=None, ops_rankP=None, ops_rankZ=None, header=None, op_decay=False):
     if ops_rankJ == None:
       ops_rankJ = [0 for _ in  fn_ops]
     if ops_rankP == None:
@@ -625,7 +677,10 @@ class KshellToolkit():
     if ops_rankZ == None:
       ops_rankZ = [0 for _ in  fn_ops]
 
-    fn_eval = self.kshell_bra.scratch_directory+self.kshell_bra.filebase+"_eval.py"
+    if not op_decay:
+      fn_eval = self.kshell_bra.scratch_directory+self.kshell_bra.filebase+"_eval.py"
+    else:
+      fn_eval = self.kshell_bra.scratch_directory+self.kshell_bra.filebase+"_decay_eval.py"
     eval_script = "#!/usr/bin/env python3\n"
     if header != None:
       eval_script += f"{header}\n"
@@ -633,16 +688,17 @@ class KshellToolkit():
     eval_script += f"sys.path.append('{self.module_path}')\n"
     eval_script += "from imsrg_toolkit.kshell_utils import KshellToolkit\n"
     eval_script += "params = {\n"
+    skip_list = ['header', 'run_cmd', 'header_daughter']
     for key, value in self.params.items():
-      if key == 'header' or key == 'run_cmd' : continue
+      if key in skip_list : continue
       if type(value) == str:
         eval_script += f"\t '{key}': '{value}',\n"
       else:
         eval_script += f"\t '{key}': {value},\n"
     eval_script+='}\n'
-    eval_script += f"vals = KshellToolkit('{self.fn_snt}', '{self.Nucl}', {self.state_list}, **params)\n"
+    eval_script += f"vals = KshellToolkit('{self.fn_snt}', '{self.Nucl}', {self.state_list}, Nucl_daughter = '{self.Nucl_daughter}', decay_mixed='{self.decay_mixed}', **params)\n"
     for op, op_rankJ, op_rankP, op_rankZ  in zip(fn_ops, ops_rankJ, ops_rankP, ops_rankZ):
-      eval_script += f"vals.calc_opexpvals('{op}', op_rankJ = {op_rankJ}, op_rankP = {op_rankP}, op_rankZ = {op_rankZ})\n"
+      eval_script += f"vals.calc_opexpvals('{op}', op_rankJ = {op_rankJ}, op_rankP = {op_rankP}, op_rankZ = {op_rankZ}, op_decay = {op_decay})\n"
     eval_script += f"vals.write_outputs_to_file('{fn_output}')"
     f = open(fn_eval, "w")
     f.write(eval_script)
@@ -697,8 +753,8 @@ class KshellToolkit():
     return fn_eval
 
 
-  def submit_expvals(self, fn_output, fn_ops, ops_rankJ=None, ops_rankP=None, ops_rankZ=None,  previous_jobid = -1, verbose = False, header=None):
-    fn_sh = self.gen_expvals_script(fn_output, fn_ops,  ops_rankJ=ops_rankJ, ops_rankP=ops_rankP, ops_rankZ=ops_rankZ, header = header)
+  def submit_expvals(self, fn_output, fn_ops, ops_rankJ=None, ops_rankP=None, ops_rankZ=None,  previous_jobid = -1, verbose = False, header=None, op_decay=False):
+    fn_sh = self.gen_expvals_script(fn_output, fn_ops,  ops_rankJ=ops_rankJ, ops_rankP=ops_rankP, ops_rankZ=ops_rankZ, header = header, op_decay=op_decay)
     if previous_jobid != -1:
       jobid = run([self.submit_cmd, '--parsable', f'--dependency=afterok:{previous_jobid}', '--kill-on-invalid-dep=yes', fn_sh], stdout=PIPE, text=True, check=True).stdout.rstrip()
     else:
@@ -720,7 +776,9 @@ class KshellToolkit():
       print(f'Submitted expvals with jobid {jobid}')
     return jobid
 
-  def submit_all(self, fn_output, fn_ops = [], ops_rankJ=None, ops_rankP=None, ops_rankZ=None, gen_partition=False,  previous_jobid = -1, verbose = False, header=None):
+  def submit_all(self, fn_output, fn_ops = [], fn_ops_decay = [], ops_rankJ=None, ops_rankP=None, ops_rankZ=None, 
+                 ops_rankJ_decay=None, ops_rankP_decay=None, ops_rankZ_decay=None, gen_partition=False,  
+                 previous_jobid = -1, verbose = False, header=None):
     if not os.path.exists(f'{self.kshell_ket.scratch_directory}/kshell.exe'):
       copy(f'{self.module_path}/bin/kshell.exe', self.kshell_ket.scratch_directory)
     if not os.path.exists(f'{self.kshell_ket.scratch_directory}/transit.exe'):
@@ -730,11 +788,21 @@ class KshellToolkit():
     os.chdir(self.kshell_ket.scratch_directory)
     #Submit the diagonalization
     diag_ids = self.submit_diag(previous_jobid=previous_jobid, verbose = verbose, gen_partition = gen_partition)
-    #Submit the density
-    density_id = self.submit_density(previous_jobids = diag_ids,  verbose = verbose)
-    if len(fn_ops) > 0:
-      #Submit the exp vals calculations
-      self.submit_expvals(fn_output, fn_ops, ops_rankJ = ops_rankJ, ops_rankP = ops_rankP, ops_rankZ = ops_rankZ, previous_jobid = density_id, verbose=verbose, header=header)
+    if not self.decay_mixed:
+      #Submit the density
+      density_id = self.submit_density(previous_jobids = diag_ids,  verbose = verbose)
+      if len(fn_ops) > 0:
+        #Submit the exp vals calculations
+        self.submit_expvals(fn_output, fn_ops, ops_rankJ = ops_rankJ, ops_rankP = ops_rankP, ops_rankZ = ops_rankZ, previous_jobid = density_id, verbose=verbose, header=header)
+    else:
+      if len(fn_ops) > 0:
+         density_id = self.submit_density(previous_jobids = [diag_ids[0]],  verbose = verbose)
+         #Submit the exp vals calculations
+         self.submit_expvals(fn_output, fn_ops, ops_rankJ = ops_rankJ, ops_rankP = ops_rankP, ops_rankZ = ops_rankZ, previous_jobid = density_id, verbose=verbose, header=header)
+      if len(fn_ops_decay) > 0:
+        density_id_decay = self.submit_density(previous_jobids = diag_ids, verbose = verbose, decay=True)
+        #Submit the exp vals calculations
+        self.submit_expvals(fn_output, fn_ops_decay, ops_rankJ = ops_rankJ_decay, ops_rankP = ops_rankP_decay, ops_rankZ = ops_rankZ_decay, previous_jobid = density_id_decay, verbose=verbose, header=header, op_decay=True)
   
 
   def submit_anapole(self, fn_output, fn_ops = [], ops_rankJ=None, ops_rankP=None, ops_rankZ=None, gen_partition=False,  previous_jobid = -1, verbose = False, header=None, scale=1000):

@@ -191,6 +191,12 @@ class Imsrg(ImsrgParams):
         op = self.rw.ReadOperator2b_Miyagi(opfile[0], self.ms)
         self.ops.append(op)
         self.op_strings.append(opfile[1])
+    if len(self.opnames_decay) != 0:
+      for opname in self.opnames_decay:
+        print(f"Starting to evolve {opname}:")
+        op = OperatorFromString(self.ms, opname)
+        self.ops.append(op)
+        self.op_strings.append(opname)
     for op, name in zip(self.ops, self.op_strings):
       #Write HO operators
       if self.write_HO_ops:
@@ -286,7 +292,7 @@ class Imsrg(ImsrgParams):
 
   def run(self, file2b, file3b, HF=False, verbose=True):
     if verbose == True:
-      print({k: v for k, v in self.__dict__.items() if not k.startswith("__")})
+      print({k: v for k, v in self.__dict__.items() if not k.startswith("__")}, flush=True)
     #Initiate the ReadWrite class to access files
     self.rw = ReadWrite()
 

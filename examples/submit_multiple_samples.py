@@ -2,6 +2,7 @@ import sys
 # from imsrg_toolkit.imsrg import Imsrg
 from imsrg_toolkit.kshell_utils import KshellWavefunctionScript, KshellDensityScript, KshellToolkit
 from imsrg_toolkit.utils import Utils
+from imsrg_toolkit.settings import username
 import numpy as np
 import pandas as pd
 
@@ -19,32 +20,34 @@ index = np.array([1728])
 # emax = [4,6,8,10]
 # time = ["00:10:00","00:30:00", "02:00:00","08:00:00"]
 # memory = ['10G', "10G", '20G',"100G"]
-emax = [10]
-time = ["08:00:00"]
-memory = ['100G']
+emax = [4]
+time = ["00:10:00"]
+memory = ['10G']
 samples_numbers = [1]
 # As = [22,23,24,25,26,27]
 # states = ['4+1',"2.5+1", "4+1", "2.5+1", "5+1", "2.5+1"]
 # As = [26,27]
-states = ["1.5+1", "0+1", "3.5-1"]
-As = [33,34,35]
+states = ["0+1"]
+As = [6]
 
 for A, state in zip(As,states):
-  Nucl = f"Si{A}" 
+  Nucl = f"He{A}" 
+  Nucl_daughter = f"Be{A}"
   imsrg_params = {}
   imsrg_params['E3max'] = 28
   imsrg_params['hw'] = 10
-  imsrg_params['BetaCM'] = 4
+  # imsrg_params['BetaCM'] = 4
   imsrg_params['A'] = A
-  imsrg_params['opnames'] = ['Rp2','Rn2']
+  imsrg_params['opnames'] = ['Rp2']
+  imsrg_params['opnames_decay'] = ['M0nu_GT_2.74_none']
   # imsrg_params['opfiles'] = opfiles = [['/work/submit/abelley/operators/M1_2BC_bare_hw10_emax12_e2max24.me2j.gz',"M1_2BC"]]
   imsrg_params['ref'] = Nucl
-  # imsrg_params['valence_space'] = '0hw-shell' # this is just a label when custom_valence_space is set
-  imsrg_params['valence_space'] = 'PsdNsdfp-shell' # this is just a label when custom_valence_space is set
-  imsrg_params['custom_valence_space'] = "O16,p0d5,p0d3,p1s1,n0d5,n0d3,n1s1,n0f7,n1p3"
+  imsrg_params['valence_space'] = '0hw-shell' # this is just a label when custom_valence_space is set
+  # imsrg_params['valence_space'] = 'PsdNsdfp-shell' # this is just a label when custom_valence_space is set
+  # imsrg_params['custom_valence_space'] = "O16,p0d5,p0d3,p1s1,n0d5,n0d3,n1s1,n0f7,n1p3"
   imsrg_params['label'] = 'SampleDelta'
-  imsrg_params['denominator_delta'] = 10
-  imsrg_params['denominator_delta_orbit'] = 'all'
+  # imsrg_params['denominator_delta'] = 10
+  # imsrg_params['denominator_delta_orbit'] = 'all'
   imsrg_params['run_cmd'] = """\
 srun apptainer exec \\
   --bind /home/submit \\
@@ -54,6 +57,7 @@ srun apptainer exec \\
   --bind /ceph/submit \\
   /work/submit/abelley/pyimsrg.sif """
   kshell_params = {}
+  kshell_params['scratch_directory'] = f"/work/submit/{username}/work/test_decay/"
   kshell_params['run_cmd'] = """\
 mpirun -np $SLURM_NTASKS"""
   
@@ -90,24 +94,32 @@ export OMP_NUM_THREADS=24
 #SBATCH --job-name=kshell_{Nucl}_emax{imsrg_params['emax']}_Sample{SampleID}_%j
 #SBATCH --nodes=1
 #SBATCH --ntasks=1  
-#SBATCH --cpus-per-task=10
+#SBATCH --mem=10G
 #SBATCH --output=/work/submit/abelley/results/kshell_log/outputs/{imsrg_params['ref']}_emax{imsrg_params['emax']}_Sample{SampleID}_%j.txt
 #SBATCH --error=/work/submit/abelley/results/kshell_log/errors/{imsrg_params['ref']}_emax{imsrg_params['emax']}_{SampleID}_%j.txt
-#SBATCH --time=30:00
+#SBATCH --time=10:00
 # ulimit -s unlimited
 module load mpi """
-
-
-
-
+      kshell_params['header_daughter'] = f"""#!/bin/bash
+#SBATCH --job-name=kshell_{Nucl_daughter}_emax{imsrg_params['emax']}_Sample{SampleID}_%j
+#SBATCH --nodes=1
+#SBATCH --ntasks=1  
+#SBATCH --mem=10G
+#SBATCH --output=/work/submit/abelley/results/kshell_log/outputs/{Nucl_daughter}_emax{imsrg_params['emax']}_Sample{SampleID}_%j.txt
+#SBATCH --error=/work/submit/abelley/results/kshell_log/errors/{Nucl_daughter}_emax{imsrg_params['emax']}_{SampleID}_%j.txt
+#SBATCH --time=15:00
+# ulimit -s unlimited
+module load mpi """
 
       imsrg_params['SampleID'] =  SampleID
       imsrg_params['LECs'] =  weights
       header_expvals = f"""#SBATCH --output=/work/submit/abelley/results/kshell_log/outputs/{imsrg_params['ref']}_emax{imsrg_params['emax']}_Sample{SampleID}_eval_%j.txt
 #SBATCH --error=/work/submit/abelley/results/kshell_log/errors/{imsrg_params['ref']}_emax{imsrg_params['emax']}_Sample{SampleID}_eval_%j.txt"""
 
-      imsrg_submit = Utils(Nucl, [state,state], imsrg_params, kshell_params)
-      imsrg_submit.submit_all_combine_delta(f"{imsrg_submit.output_dir}/{imsrg_submit.filebase}_ops.csv", header_expvals = header_expvals, ops_rankJ = [0,0], verbose=True)
+      imsrg_submit = Utils(Nucl, [state,state], imsrg_params, kshell_params, Nucl_daughter=Nucl_daughter)
+      imsrg_submit.submit_all_combine_delta(f"{imsrg_submit.output_dir}/{imsrg_submit.filebase}_decay_test.csv", 
+                                            header_expvals = header_expvals,
+                                            ops_rankJ = [0], ops_rankZ_decay=[2], verbose=True)
   # fn_ops = [f"{imsrg_submit.output_dir}{imsrg_submit.filebase}_{op}.snt" for op in imsrg_submit.opnames]
   # tmp = [f"{imsrg_submit.output_dir}{imsrg_submit.filebase}_{op[1]}.snt" for op in imsrg_submit.opfiles]
   # fn_ops.extend(tmp)

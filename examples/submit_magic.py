@@ -31,13 +31,13 @@ memory = ["100G"]
 # mass = [22,23,24,25,26,27]
 # states = ["4+1","2.5+1","4+1","2.5+1","5+1","2.5+1"]
 
-# Nucleus = 'Si'
-# states = ["1.5+1", "0+1", "3.5-1"]
-# As = [33,34,35]
-
 Nucleus = 'Si'
-states = ["0+1", "3.5-1"]
-As = [34,35]
+states = ["1.5+1", "0+1", "3.5-1"]
+As = [33,34,35]
+
+# Nucleus = 'Si'
+# states = ["0+1", "3.5-1"]
+# As = [34,35]
 
 # vs = '0hw-shell'
 
@@ -105,9 +105,10 @@ mpirun -np $SLURM_NTASKS"""
 # module load mpi"""
     kshell_params['header'] = f"""#!/bin/bash
 #SBATCH --job-name=kshell_{Nucl}_emax{imsrg_params['emax']}_magic_%j
-#SBATCH --nodes=1
-#SBATCH --ntasks=1  
+#SBATCH --nodes=10
+#SBATCH --ntasks-per-node=1  
 #SBATCH --cpus-per-task=10
+#SBATCH --mem-per-cpu=1000M
 #SBATCH --output=/work/submit/abelley/results/kshell_log/outputs/{imsrg_params['ref']}_emax{imsrg_params['emax']}_magic_%j.txt
 #SBATCH --error=/work/submit/abelley/results/kshell_log/errors/{imsrg_params['ref']}_emax{imsrg_params['emax']}_magic_%j.txt
 #SBATCH --time=30:00
@@ -134,7 +135,7 @@ export OMP_NUM_THREADS=24"""
 #SBATCH --error=/work/submit/abelley/results/kshell_log/errors/{imsrg_params['ref']}_emax{imsrg_params['emax']}_magic_eval_%j.txt"""
 
     imsrg_submit = Utils(Nucl, [state, state], imsrg_params, kshell_params)
-    imsrg_submit.submit_all(file2b, file3b, f"{imsrg_submit.output_dir}/{imsrg_submit.filebase}_radii.csv", header_expvals = header_expvals, verbose=True)
-    # fn_ops = imsrg_submit.gen_oplist()
-    # imsrg_submit.kshell.submit_all(f"{imsrg_submit.output_dir}/{imsrg_submit.filebase}_Rn2.csv", fn_ops, header = header_expvals, verbose=True)
+    # imsrg_submit.submit_all(file2b, file3b, f"{imsrg_submit.output_dir}/{imsrg_submit.filebase}_radii.csv", header_expvals = header_expvals, verbose=True)
+    fn_ops = imsrg_submit.gen_oplist()
+    imsrg_submit.kshell.submit_all(f"{imsrg_submit.output_dir}/{imsrg_submit.filebase}_radii.csv", fn_ops, header = header_expvals, verbose=True)
   # count +=1 
