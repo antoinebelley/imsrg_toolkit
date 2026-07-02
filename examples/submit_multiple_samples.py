@@ -36,7 +36,7 @@ samples_numbers = [1]
 # states = ['4+1',"2.5+1", "4+1", "2.5+1", "5+1", "2.5+1"]
 # As = [26,27]
 states = ["0+1"]
-As = [6]
+As = [8]
 
 imsrg_log_path = f"/work/submit/{username}/results/imsrg_log/outputs/"
 imsrg_error_path = f"/work/submit/{username}/results/imsrg_log/errors/"

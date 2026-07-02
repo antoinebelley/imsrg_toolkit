@@ -451,9 +451,10 @@ class KshellWavefunctionScript(KshellScript):
 
 
 class KshellDensityScript(KshellScript):
-  def __init__(self, fn_snt, Nucl_daughter=None, **kwargs):
+  def __init__(self, fn_snt, Nucl="He6", Nucl_daughter=None, **kwargs):
     super().__init__(fn_snt, **kwargs)
     self.state_list = ["+1", "+1"]
+    self.Nucl = Nucl
     self.update_params(**kwargs)
     Path(self.output_directory).mkdir(parents=True, exist_ok=True)
     Path(self.scratch_directory).mkdir(parents=True, exist_ok=True)
