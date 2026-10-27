@@ -13,19 +13,19 @@ def getNucl(Nucl, A):
 
 
 ##########PARAMETERS TO CHANGE BEFORE RUN###################
-kshell_log_path = f"/work/submit/{username}/results/kshell_log/outputs/"
-kshell_error_path = f"/work/submit/{username}/results/kshell_log/errors/"
-A =  24
-Nucleus = "Al"
+kshell_log_path = f"/home/belleya/projects/rrg-holt/belleya/results/kshell_log/outputs/"
+kshell_error_path = f"/home/belleya/projects/rrg-holt/belleya/results/kshell_log/errors/"
+A =  133
+Nucleus = "Cs"
 Nucl = getNucl(Nucleus, A)
-hw = 10
+hw = 16
 opnames = ['Rp2']
 
 
-vs = 'sd-shell'
+vs = 'jj55'
 state = "1+1"
 
-snt_files = glob.glob(f"/home/submit/abelley/results/{Nucl}/SampleDelta/sd-shell_SampleDelta_*_{Nucl}_magnus_e*_E*_hw10.snt")
+snt_files = glob.glob(f"/home/belleya/projects/rrg-holt/belleya/results/Cs133/magic/jj55_magic_Cs133_magnus_e12_E24_hw16_BetaCM1.0.snt")
 for snt in snt_files:
   snt_list = snt.split("/")[-1].split("_")
   SampleID = snt_list[2]
@@ -48,17 +48,17 @@ mpirun -np $SLURM_NTASKS"""
   Path(kshell_log_path).mkdir(parents=True, exist_ok=True)
   Path(kshell_error_path).mkdir(parents=True, exist_ok=True)
   kshell_params['header'] = f"""#!/bin/bash
-#SBATCH --job-name=test_kshell_{Nucl}_emax{emax}_Sample{SampleID}_%j
-#SBATCH --nodes=4
-#SBATCH --ntasks-per-node=1
-#SBATCH --ntasks=4
-#SBATCH --cpus-per-task=2
-#SBATCH --mem-per-cpu=100
-#SBATCH --time=0-01:00
-#SBATCH --output={kshell_log_path}/{Nucl}_Sample_{SampleID}_e{emax}_E{E3max}_%j.txt
-#SBATCH --error={kshell_error_path}/{Nucl}_Sample_{SampleID}_e{emax}_E{E3max}_%j.txt
+#SBATCH --job-name=kshell_{Nucl}_emax{imsrg_params['emax']}_N3LO_%j
+#SBATCH --nodes=30
+#SBATCH --ntasks-per-node=1  
+#SBATCH --mem=5000M
+#SBATCH --cpus-per-task=48
+#SBATCH --output={kshell_log_path}/kshell_{Nucl}_emax{imsrg_params['emax']}_{imsrg_params['label']}_%j.txt
+#SBATCH --error={kshell_error_path}/kshell_{Nucl}_emax{imsrg_params['emax']}_{imsrg_params['label']}_%j.txt
+#SBATCH --time=2:00:00
+#SBATCH --account=rrg-holt
 # ulimit -s unlimited
-module load mpi"""
+module load openmpi """
 
 
 

@@ -1,11 +1,6 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # ./collect_logs.py log_foo.txt log_bar.txt ...
 #
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import sys
 from math import *
 
@@ -27,20 +22,19 @@ def weisskopf_unit(asc, mass):
     l = int(asc[1:])
     if asc[0] in ('e', 'E'):
         wu = 1.2**(2*l) / ( 4.*pi )  * (3./(l+3.))**2 \
-            * mass**(2.*l/3.)  
+            * mass**(2.*l/3.)
         unit = 'e^2 fm^'+str(2*l)
     elif asc[0] in ('m', 'M'):
         wu = 10. / pi * 1.2**(2*l-2) * (3./(l+3.))**2 \
-            * mass**((2.*l-2.)/3.) 
-        if l==1: 
+            * mass**((2.*l-2.)/3.)
+        if l==1:
             unit = 'mu_N^2  '
         else:
             unit = 'mu_N^2 fm^'+str(2-2)
     else:
-        print('weisskpf error')
-        sys.exit(1)
+        raise 'weisskpf error'
     return  wu, unit
-    
+
 
 
 def read_file_ene(fn):
@@ -54,17 +48,22 @@ def read_file_ene(fn):
             line = fp.readline()
             if not line: break
             if line[6:10] == '<H>:':
-                n_eig= int(line[:5])
-                ene  = float(line[11:22])
-                mtot = int(line[45:48])
-                prty = int(line[57:59])
+                arr = line.split()
+                n_eig = int(arr[0])
+                ene = float(arr[2])
+                mtot = int(arr[6][:-2])
+                prty = int(arr[8])
                 prty = i2prty(prty)
-                while ene in e_data: ene += 0.000001
+                tt = -1
+                while ene in e_data: ene += 0.00000001
                 while True:
                     line = fp.readline()
-                    if not line: break
-                    if line[42:45] != ' T:': continue
-                    tt = int(line[45:48])
+                    arr = line.split()
+                    tt = -1
+                    if arr[0]=="<Hcm>:":
+                        tt = int(arr[5][:-2])
+                    elif arr[0]=="<TT>:":
+                        tt = int(arr[3][:-2])
                     e_data[ ene ] = (fn, mtot, prty, n_eig, tt)
                     break
     fp.close()
@@ -73,11 +72,11 @@ def read_file_ene(fn):
 def str_JJ(jj):
     if jj < 0:
         return str(jj) #+'  '
-    elif jj % 2 == 0: 
+    elif jj % 2 == 0:
         return str(jj//2) # +'  '
     else:
         return str(jj) + '/2'
-        
+
 
 def read_file_tran(fn, asc):
     out_e = {}
@@ -95,12 +94,12 @@ def read_file_tran(fn, asc):
             mass = int( line[n+5:n+8] )
             if not mass_save:
                 mass_save = mass
-            if mass_save != mass: 
-                print( 'ERROR  mass', mass, mass_save )
+            if mass_save != mass:
+                print('ERROR  mass', mass, mass_save)
             wu, unit = weisskopf_unit(asc, mass)
-        if arr[0] == 'fn_load_wave_l': 
+        if arr[0] == 'fn_load_wave_l':
             fn_l = arr[2]
-        elif arr[0] == 'fn_load_wave_r': 
+        elif arr[0] == 'fn_load_wave_r':
             fn_r = arr[2]
         if line[:14] != " "+asc+" transition":  continue
         is_r = unit
@@ -138,17 +137,17 @@ def read_file_tran(fn, asc):
             if asc == 'M1': stringformat \
                = "%4s%c(%2d) %6.3f %4s%c(%2d) %6.3f %6.3f " \
                + "%8.3f(%5.2f) %8.3f(%5.2f)\n"
-                
+
             if ex > 0.0:
                 out = stringformat \
-                      % (str_JJ(j2), prty2, n2, E2, 
-                         str_JJ(j1), prty1, n1, E1, 
+                      % (str_JJ(j2), prty2, n2, E2,
+                         str_JJ(j1), prty1, n1, E1,
                          ex,  b2, wu2, b1, wu1)
                 ky = E2 + E1 * 1e-5 + j2 *1.e-10 + n2*1.e-11 + j1*1.e-13 + n1*1.e-14
             else:
                 out = stringformat \
-                      % (str_JJ(j1), prty1, n1, E1, 
-                         str_JJ(j2), prty2, n2, E2, 
+                      % (str_JJ(j1), prty1, n1, E1,
+                         str_JJ(j2), prty2, n2, E2,
                          -ex, b1, wu1, b2, wu2)
                 ky = E1 + E2 * 1e-5 + j1 *1.e-10 + n1*1.e-11 + j2*1.e-12 + n2*1.e-14
             out_e[ky] = out
@@ -164,8 +163,7 @@ def main(fn_list):
     keys = list(e_data.keys())
     if len(keys)>0:
         keys.sort()
-        # keys = sorted(keys)
-        
+
         njp = {}
         for e in keys:
             fn, mtot, prty, n_eig, tt = e_data[e]
@@ -179,9 +177,9 @@ def main(fn_list):
         print('\n    N    J prty N_Jp    T     E(MeV)  Ex(MeV)  log-file\n')
         for i,e in enumerate(keys):
             fn, mtot, prty, n_eig, tt = e_data[e]
-            print("%5d %5s %1s %5d %5s %10.3f %8.3f  %s " \
+            print("%5d %5s %1s %5d %5s %15.8f %13.8f  %s " \
                 % (i+1, str_JJ(mtot), prty, n_eig, str_JJ(tt), e, e-e_gs, fn))
-        print("")
+        print()
 
 
     def print_transition(asc):
@@ -194,11 +192,11 @@ def main(fn_list):
         wu, unit = weisskopf_unit(asc, mass)
         output = """
 B(%s)  ( > %.1f W.u.)  mass = %d    1 W.u. = %.1f %s
-                                           %s (W.u.) 
-   J_i    Ex_i     J_f    Ex_f   dE        B(%s)->         B(%s)<- 
+                                           %s (W.u.)
+   J_i    Ex_i     J_f    Ex_f   dE        B(%s)->         B(%s)<-
 """ % (asc, thrd,  mass, wu, unit, is_show, asc, asc)
         for e,out in sorted(output_e.items()):
-            output += out        
+            output += out
         if is_show: print(output)
 
     print_transition('E2')

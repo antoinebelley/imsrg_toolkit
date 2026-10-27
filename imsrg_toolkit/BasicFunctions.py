@@ -4,7 +4,7 @@ from scipy.special import gamma, assoc_laguerre, eval_gegenbauer, eval_genlaguer
 from scipy import integrate
 from scipy.constants import physical_constants
 from sympy import N
-from scipy.special import sph_harm
+from scipy.special import sph_harm_y
 from sympy.physics.wigner import wigner_3j, wigner_6j, wigner_9j, clebsch_gordan
 
 hc = physical_constants['reduced Planck constant times c in MeV fm'][0]
@@ -85,7 +85,7 @@ def sigma(m):
 
 def Ylm(Q, l, m):
     Ql, theta, phi = get_spherical(Q)
-    return sph_harm(m, l, phi, theta)
+    return sph_harm_y(m, l, phi, theta)
 
 def YJLM(Q,J,L,M):
     Ql, theta_Q, phi_Q = get_spherical(Q)

@@ -6,77 +6,6 @@ from imsrg_toolkit.settings import *
 from imsrg_toolkit.imsrg_params import *
 
 
-# @dataclass(frozen=False)
-# class ImsrgParams():
-#   #Paths for inputs and outputs
-#   scratch_directory: str = f'/work/submit/{username}/work/imsrg/'
-#   output_directory_base: str = f'/home/submit/{username}/results/'
-#   file2b_directory: str = INTERACTION_2B_PATH
-#   file3b_directory: str = INTERACTION_3B_PATH
-
-#   #Model space parameters
-#   A: int = 6
-#   emax: int = 2
-#   E3max: int = 6
-#   hw: int = 10
-#   ref: str = 'He6'
-#   valence_space: str = 'p-shell'
-#   custom_valence_space: str = None 
-
-#    #2B interaction parameters 
-#   label: str = 'SampleDelta'
-#   SampleID: str = None #This is for the interactions samples only
-#   file2e1max: int = 14
-#   file2e2max: int = 28
-#   file2lmax: int = 14    
-
-#   #3B interaction parameters
-#   file3e1max: int = 16
-#   file3e2max: int = 32
-#   file3e3max: int = 28
-#   file3_format: str = 'no2b'
-#   file3_precision: str = 'half'
-
-#   #Parameters for the BetaCM
-#   BetaCM: float = 0.0
-#   hwBetaCM: float = hw  # Negative value means use the frequency
-
-#   #IMSRG solver parameters
-#   basis : str = 'HF'
-#   method: str = 'magnus'
-#   denominator_partitioning: str = 'Epstein_Nesbet'
-#   eta_criterion: float = 1e-6
-#   smax: int = 500
-#   dsmax: float = 0.5
-#   ds0: float = 0.5
-#   denominator_delta: float = 0
-#   denominator_delta_orbit: str = None
-#   domega: float = 0.2
-#   omega_norm_max: float = 0.25
-#   ode_tolerance: float = 1e-6
-#   core_generator: str = 'atan'
-#   valence_space_generator: str = 'shell-model-atan'
-
-#   #Operators parameters
-#   opfiles: list = []
-#   opnames: list = []
-#   write_HO_ops: bool = True
-#   write_HF_ops: bool = True
-
-
-#   def gen_filebase(self):
-#     if not self.sampleID:
-#       self.filebase = f"{self.valence_space}_{self.label}_{self.ref}_{self.method}_e{self.emax}_E{self.E3max}_hw{self.hw}"
-#     else:
-#       self.filebase = f"{self.valence_space}_{self.label}_{self.sampleID}_{self.ref}_{self.method}_e{self.emax}_E{self.E3max}_hw{self.hw}"
-
-#   def __post_init__(self):
-#     #generate the file name for the snt file
-#     self.output_dir = f"{self.output_directory_base}/{self.ref}/{self.label}/"
-#     self.gen_filebase(self.sampleID)
-#     self.intfile = f"{self.output_dir}/{self.filebase}"
-
-
 class Utils():
   def __init__(self, Nucl, state_list, imsrg_params, kshell_params, Nucl_daughter=None, submit_cmd='sbatch', HF=False):
     self.imsrg_params = imsrg_params
@@ -100,7 +29,7 @@ class Utils():
     self.filebase = fn_snt_path.name
     self.fn_py = self.filebase+".py"
     self.fn_sh = self.filebase+".sh"
-    self.scratch_directory = pars.scratch_directory
+    self.imsrg_directory = pars.imsrg_scripts_directory
 
 
   def write_script_header(self):
@@ -117,9 +46,10 @@ class Utils():
       else:
         script += f"\t '{key}': {value},\n"
     script+='}\n'
+    skips  = ['header','header_daughter','header_density', 'run_cmd']
     script += "params_kshell = {\n"
     for key, value in self.kshell.params.items():
-      if key == 'header' or key == 'run_cmd': continue
+      if key in skips: continue
       if type(value) == str:
         script += f"\t '{key}': '{value}',\n"
       else:
@@ -145,9 +75,10 @@ class Utils():
       else:
         script += f"\t '{key}': {value},\n"
     script+='}\n'
+    skips  = ['header','header_daughter','header_density', 'run_cmd']
     script += "params_kshell = {\n"
     for key, value in self.kshell.params.items():
-      if key == 'header' or key == 'run_cmd': continue
+      if key in skips: continue
       if type(value) == str:
         script += f"\t '{key}': '{value}',\n"
       else:
@@ -160,7 +91,7 @@ class Utils():
 
 
   def gen_imsrg_python_script(self, file2b, file3b):
-    fn_pyimsrg = self.scratch_directory+self.fn_py
+    fn_pyimsrg = self.imsrg_directory+self.fn_py
     script = self.write_script_header()
     script += f"imsrg.run('{file2b}', '{file3b}', HF = {self.HF})\n"
     script = self.add_kshell_partition(script)
@@ -172,9 +103,21 @@ class Utils():
   
 
   def gen_imsrg_python_script_anapole(self, file2b, file3b, scale=1000, staged=True):
-    fn_pyimsrg = self.scratch_directory+self.fn_py
+    fn_pyimsrg = self.imsrg_directory+self.fn_py
     script = self.write_script_header_anapole()
     script += f"imsrg.run_anapole('{file2b}', '{file3b}', scale = {scale}, staged = {staged})\n"
+    script = self.add_kshell_partition(script)
+    f = open(fn_pyimsrg, "w")
+    f.write(script)
+    f.close()
+    os.chmod(fn_pyimsrg, 0o755)
+    return fn_pyimsrg
+  
+
+  def gen_imsrg_python_script_anapole_staged_split(self, file2b, file3b, VPNC_path=None):
+    fn_pyimsrg = self.imsrg_directory+self.fn_py
+    script = self.write_script_header_anapole()
+    script += f"imsrg.run_anapole_staged_split('{file2b}', '{file3b}', VPNC_path='{VPNC_path}')\n"
     script = self.add_kshell_partition(script)
     f = open(fn_pyimsrg, "w")
     f.write(script)
@@ -184,7 +127,7 @@ class Utils():
 
 
   def gen_imsrg_python_script_combine_delta(self):
-    fn_pyimsrg = self.scratch_directory+self.fn_py
+    fn_pyimsrg = self.imsrg_directory+self.fn_py
     script = self.write_script_header()
     script += f"imsrg.run_combine_delta(HF = {self.HF})\n"
     script = self.add_kshell_partition(script)
@@ -230,20 +173,26 @@ class Utils():
 
 
   def gen_imsrg_submit_script(self, file2b, file3b):
-    fn_script = self.scratch_directory+self.fn_sh
+    fn_script = self.imsrg_directory+self.fn_sh
     python_script = self.gen_imsrg_python_script(file2b, file3b)
     self.write_submission_script(fn_script, python_script)
     return fn_script
 
   def gen_imsrg_submit_script_anapole(self, file2b, file3b, staged=True, scale=1000):
-    fn_script = self.scratch_directory+self.fn_sh
+    fn_script = self.imsrg_directory+self.fn_sh
     python_script = self.gen_imsrg_python_script_anapole(file2b, file3b, staged=staged, scale=scale)
+    self.write_submission_script(fn_script, python_script)
+    return fn_script
+  
+  def gen_imsrg_submit_script_anapole_staged_split(self, file2b, file3b, VPNC_path=None):
+    fn_script = self.imsrg_directory+self.fn_sh
+    python_script = self.gen_imsrg_python_script_anapole_staged_split(file2b, file3b, VPNC_path=VPNC_path)
     self.write_submission_script(fn_script, python_script)
     return fn_script
 
 
   def gen_imsrg_submit_script_combine_delta(self):
-    fn_script = self.scratch_directory+self.fn_sh
+    fn_script = self.imsrg_directory+self.fn_sh
     python_script = self.gen_imsrg_python_script_combine_delta()
     self.write_submission_script(fn_script, python_script)
     return fn_script
@@ -263,6 +212,11 @@ class Utils():
 
   def submit_anapole(self, file2b, file3b, verbose=False, staged=True, scale = 1000):
     fn_sh = self.gen_imsrg_submit_script_anapole(file2b, file3b, scale=scale, staged=staged)
+    return self.submit_job(fn_sh, verbose=verbose)
+
+
+  def submit_anapole_staged_split(self, file2b, file3b, verbose=False, VPNC_path=None):
+    fn_sh = self.gen_imsrg_submit_script_anapole_staged_split(file2b, file3b, VPNC_path = VPNC_path)
     return self.submit_job(fn_sh, verbose=verbose)
 
 
@@ -326,3 +280,18 @@ class Utils():
     imsrg_id = self.submit_anapole(file2b, file3b, verbose=verbose, staged = staged, scale=scale)
     fn_ops = fn_ops = [f"{self.output_dir}{self.filebase}_Anapolepp.snt"]
     self.kshell.submit_anapole(fn_output, fn_ops, previous_jobid = imsrg_id, ops_rankJ = ops_rankJ, ops_rankP = ops_rankP, ops_rankZ = ops_rankZ, header = header_expvals, verbose=verbose, scale=scale)
+
+
+  def submit_all_anapole_staged_split(self, file2b, file3b, fn_output,   
+                        header_expvals=None, verbose=False, VPNC_path=None):
+    imsrg_id = self.submit_anapole_staged_split(file2b, file3b, 
+                                                verbose=verbose, VPNC_path=VPNC_path)
+    names = ['best', 'hpi1', 'hrho0', 'hrho1', 'hrho2', 'hrho1p', 'homega0', 'homega1']                                                
+    fn_ops = [f"{self.output_dir}{self.filebase}_Anapolepp_{name}.snt" for name in names]
+    ops_rankJ = [1 for i in range(len(names))]
+    ops_rankZ = [0 for i in range(len(names))]
+    ops_rankP = [1 for i in range(len(names))]
+    self.kshell.submit_anapole(fn_output, fn_ops, 
+                                previous_jobid = imsrg_id, ops_rankJ = ops_rankJ, 
+                                ops_rankP = ops_rankP, ops_rankZ = ops_rankZ, 
+                                header = header_expvals, verbose=verbose)

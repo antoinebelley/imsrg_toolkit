@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 from imsrg_toolkit.settings import *
 from imsrg_toolkit.imsrg_params import *
+import shutil
 
 
 
@@ -15,7 +16,8 @@ class Imsrg(ImsrgParams):
     #Initiate the class based on the abstract data class
     #which contains all of the parameters.
     super().__init__(**kwargs)
-    Path(self.scratch_directory).mkdir(parents=True, exist_ok=True)
+    if self.scratch_directory:
+      Path(self.scratch_directory).mkdir(parents=True, exist_ok=True)
     Path(self.output_dir).mkdir(parents=True, exist_ok=True)
 
 
@@ -206,10 +208,16 @@ class Imsrg(ImsrgParams):
         self.write_op_to_file(op, name, extra = "HO")
         op = op.UndoNormalOrderingCore()
       #Transform operators to HF basis
+      if op.GetJRank() == 0 and (op.GetTRank() != 0 or op.GetParity() != 0):
+        op.MakeNotReduced()
       op = self.hf.TransformToHFBasis(op)
+      if op.GetJRank() == 0 and (op.GetTRank() != 0 or op.GetParity() != 0):
+          op.MakeReduced()
       #Write HF operator to file.
       if self.write_HF_ops or HF:
         op = op.DoNormalOrderingCore()
+        if op.GetJRank() == 0 and (op.GetTRank() != 0 or op.GetParity() != 0):
+          op.MakeReduced()
         print(f"Writing HF operators to {self.output_dir}")
         self.write_op_to_file(op, name, extra = "HF")
         if HF:
@@ -296,6 +304,9 @@ class Imsrg(ImsrgParams):
       print({k: v for k, v in self.__dict__.items() if not k.startswith("__")}, flush=True)
     #Initiate the ReadWrite class to access files
     self.rw = ReadWrite()
+    if self.scratch_directory:
+      self.rw.SetScratchDir(self.scratch_directory)
+
 
     
     #Create the model space for the nuclei
@@ -317,6 +328,7 @@ class Imsrg(ImsrgParams):
 
     #If we only want the HF results, stop the calculation of the interacion here
     if HF:
+      HNO = HNO.UndoNormalOrdering()
       HNO = HNO.DoNormalOrderingCore()
       print(f'Writing output file to {self.output_dir}')
       self.rw.WriteTokyo(HNO,self.intfile+"_HF.snt", "")
@@ -337,11 +349,19 @@ class Imsrg(ImsrgParams):
 
     # Evolve operators
     self.evolve_operators(HF=HF)
+    if self.scratch_directory:
+      if os.path.exists(self.scratch_directory):
+        shutil.rmtree(self.scratch_directory)
+        print("Folder deleted successfully.")
+      else:
+        print("Folder not found.")
 
 
   def run_combine_delta(self, HF=False):
     #Initiate the ReadWrite class to access files
     self.rw = ReadWrite()
+    if self.scratch_directory:
+      self.rw.SetScratchDir(self.scratch_directory)
 
     #Create the model space for the nuclei
     self.init_modelspace()
@@ -358,6 +378,7 @@ class Imsrg(ImsrgParams):
     if self.BetaCM != 0:
       HNO -= self.BetaCM * 1.5*self.hwBetaCM
     if HF:
+      HNO = HNO.UndoNormalOrdering()
       HNO = HNO.DoNormalOrderingCore()
       Path(self.output_dir).mkdir(parents=True, exist_ok=True)
       print(f'Writing output file to {self.output_dir}')
@@ -382,6 +403,13 @@ class Imsrg(ImsrgParams):
 
     # Evolve operators
     self.evolve_operators(HF=HF)
+    if self.scratch_directory:
+      if os.path.exists(self.scratch_directory):
+        shutil.rmtree(self.scratch_directory)
+        print("Folder deleted successfully.")
+      else:
+        print("Folder not found.")
+
 
 
 
@@ -436,7 +464,7 @@ class PvImsrg(Imsrg):
     return fn
 
 
-  def write_to_file(self, HNO, fn_base = None, VPV=None, path=None, extra=None):
+  def write_to_file(self, HNO = None, fn_base = None, write_op=True, write_pp_only=False, VPV=None, path=None, extra=None):
     files = []
     if not fn_base:
       vs = self.vs
@@ -444,12 +472,17 @@ class PvImsrg(Imsrg):
       if self.BetaCM != 0:
         fn_base += f'_BCM{self.BetaCM}'
     print(fn_base)
-    files.append(self.__write_op_to_file__(fn_base, HNO, path=path, extra=extra))
+    if HNO:
+      files.append(self.__write_op_to_file__(fn_base, HNO, path=path, extra=extra))
     if VPV:
       files.append(self.__write_op_to_file__(fn_base, VPV, opname = "VPV", path=path, extra=extra))
-    for op, opname in zip(self.ops, self.op_strings):
-      files.append(self.__write_op_to_file__(
-          fn_base, op, opname=opname, path=path, extra=extra))
+    if write_op:
+      for op, opname in zip(self.ops, self.op_strings):
+        if write_pp_only:
+          if op.GetParity() != 0: 
+            continue
+        files.append(self.__write_op_to_file__(
+            fn_base, op, opname=opname, path=path, extra=extra))
     return files
 
 
@@ -505,7 +538,9 @@ class PvImsrg(Imsrg):
     return HNO, VPV
 
 
-  def run_anapole(self, file2b, file3b, scale=1000, staged=True):
+  def run_anapole(self, file2b, file3b, scale=1000, staged=True,VPNC_path=None):
+    if not VPNC_path:
+      VPNC_path = INTERACTION_2B_PATH
     #Initiate the ReadWrite class to access files
     self.rw = ReadWrite()
 
@@ -524,7 +559,7 @@ class PvImsrg(Imsrg):
     self.add_operator(Anapole, "Anapole")
 
     #Read the VPV interaction
-    VPNC_path = f"{INTERACTION_2B_PATH}/PVTCint_DDH_best-LO-NonLocal2-500_TwBME-HO_NN-only_N3LO_EM500_bare_hw{self.hw}_emax12_e2max24.me2j.gz"
+    VPNC_path = f"{VPNC_path}/PVTCint_DDH_best-LO-NonLocal2-500_TwBME-HO_NN-only_N3LO_EM500_bare_hw{self.hw}_emax12_e2max24.me2j.gz"
     VPNC = self.rw.ReadOperator2b_Miyagi(VPNC_path, self.ms)
     VPNC.SetAntiHermitian()
     VPNC *= scale
@@ -555,3 +590,91 @@ class PvImsrg(Imsrg):
     fn_snt, fn_VPNC, fn_Anapolepp, fn_Anapole = self.write_to_file(
       HNO, VPV=VPNC, path=os.path.abspath(self.output_dir), fn_base=self.filebase)
     return fn_snt, fn_Anapolepp
+  
+
+  def run_anapole_staged_split(self, file2b, file3b, VPNC_path=None):
+    if not VPNC_path:
+      VPNC_path = INTERACTION_2B_PATH
+    #Initiate the ReadWrite class to access files
+    self.rw = ReadWrite()
+
+    #Create the model space for the nuclei
+    self.init_modelspace()
+
+    #Create the input hamiltonian from the 2b and 3b file
+    Hbare = self.read_interaction(file2b, file3b)
+    if self.BetaCM!=0:
+      Hbare += self.BetaCM*OperatorFromString(self.ms, f'HCM_{self.hwBetaCM}')
+
+    #Create anapole operators
+    Anapole = OperatorFromString(self.ms, 'Anapole')
+    Anapolepp = Operator(self.ms, 1, 0, 0, 2)
+    self.add_operator(Anapolepp, "Anapolepp")
+    self.add_operator(Anapole, "Anapole")
+
+
+    #Solve HFMBPT to obtain reference state
+    HNO = self.get_HNO(Hbare)
+    if self.BetaCM != 0:
+      HNO -= self.BetaCM * 1.5*self.hwBetaCM
+    #Give estimate with perturbation theory to make sure everything is ok
+    self.print_estimatePT(HNO)
+    
+    
+    self.operators_to_HF()
+    
+    #We first do the decoupling using the standard IMSRG
+    HNO = self.evolve_Hamiltonian(HNO, renormal_order=False)
+    self.evolve_operators()
+    #Evolve the anapole moment for the different part of the nuclear interaction
+    VPNC_ops = [f"PVTCint_DDH_best-LO-NonLocal2-500_TwBME-HO_NN-only_N3LO_EM500_bare_hw{self.hw}_emax12_e2max24.me2j.gz",
+            f"PVTCint_DDH_hpi1-LO-NonLocal2-500_TwBME-HO_NN-only_N3LO_EM500_bare_hw{self.hw}_emax12_e2max24.me2j.gz",
+            f"PVTCint_DDH_hrho0-LO-NonLocal2-500_TwBME-HO_NN-only_N3LO_EM500_bare_hw{self.hw}_emax12_e2max24.me2j.gz",
+            f"PVTCint_DDH_hrho1-LO-NonLocal2-500_TwBME-HO_NN-only_N3LO_EM500_bare_hw{self.hw}_emax12_e2max24.me2j.gz",
+            f"PVTCint_DDH_hrho2-LO-NonLocal2-500_TwBME-HO_NN-only_N3LO_EM500_bare_hw{self.hw}_emax12_e2max24.me2j.gz",
+            f"PVTCint_DDH_hrho1p-LO-NonLocal2-500_TwBME-HO_NN-only_N3LO_EM500_bare_hw{self.hw}_emax12_e2max24.me2j.gz",
+            f"PVTCint_DDH_homega0-LO-NonLocal2-500_TwBME-HO_NN-only_N3LO_EM500_bare_hw{self.hw}_emax12_e2max24.me2j.gz",
+            f"PVTCint_DDH_homega1-LO-NonLocal2-500_TwBME-HO_NN-only_N3LO_EM500_bare_hw{self.hw}_emax12_e2max24.me2j.gz"]
+    names = ['best', 'hpi1', 'hrho0', 'hrho1', 'hrho2', 'hrho1p', 'homega0', 'homega1']
+    for i, vpnc_op in enumerate(VPNC_ops):
+      VPNC = f"{VPNC_path}/{vpnc_op}"
+      VPNC = self.rw.ReadOperator2b_Miyagi(VPNC, self.ms)
+      VPNC.SetAntiHermitian()
+      if i !=0:
+        VPNC *= 1e-7
+      VPNC = self.op_HF_NO(VPNC)
+      VPNC = self.imsrgsolver.Transform(VPNC)
+      #Do the PV evolution (which only requires commutator of OmegaPV and Anapole_PV)
+      OmegaPV = Operator(self.ms, 0, 0, 1, 2)
+      OmegaPV.SetHermitian()
+      etaPV = OmegaPV * 0
+
+      dummy_Eta = Operator(self.ms, 0, 0, 0, 2)
+      dummy_Eta.SetAntiHermitian()
+      gen = GeneratorPV()
+      gen.SetType('shell-model')
+      VPNCs = 1 *VPNC
+      HNO.SetHermitian()
+      gen.Update(HNO, VPNCs, dummy_Eta, etaPV)
+      print("Initial etaPV norm = ", etaPV.Norm())
+      print("Initial VPNC norm = ", VPNCs.Norm()*1e5)
+      for j in range(500):
+        gen.Update(HNO, VPNCs, dummy_Eta, etaPV)
+        OmegaPV += etaPV * self.dsmax
+        VPNCs = VPNC +  Commutator.Commutator(OmegaPV, HNO)
+        etaPVnorm = etaPV.Norm()
+        print('s = ', j*self.dsmax, 'etaPV norm = ', etaPVnorm*1e5)
+        print('s = ', j*self.dsmax, 'OmegaPV norm = ', OmegaPV.Norm()*1e5)
+        print('s = ', j*self.dsmax, 'VPNC norm = ', VPNCs.Norm()*1e5)
+        if etaPVnorm < 1e-12:
+          break
+      Anapolepp_evolved = Anapolepp + Commutator.Commutator(OmegaPV, self.ops[1])
+      self.ops[0] = Anapolepp_evolved
+      
+      self.output_dir = f"{self.output_directory_base}/{self.ref}/{self.label}/"
+      Path(self.output_dir).mkdir(parents=True, exist_ok=True)
+      print(f'Writing output file to {self.output_dir}')
+      stdout.flush()
+      fn_snt = self.write_to_file(HNO=HNO,path=os.path.abspath(self.output_dir), fn_base=self.filebase)
+      files = self.write_to_file(path=os.path.abspath(self.output_dir), fn_base=self.filebase, extra=names[i])
+    return files

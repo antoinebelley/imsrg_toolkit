@@ -4,7 +4,9 @@ from dataclasses import dataclass, field
 @dataclass(frozen=False)
 class ImsrgParams():
   #Paths for inputs and outputs
-  scratch_directory: str = f'/work/submit/{username}/work/imsrg/'
+  # scratch_directory: str = f'/work/submit/{username}/work/imsrg/'
+  scratch_directory: str = None
+  imsrg_scripts_directory:  str = f'/work/submit/{username}/work/imsrg/'
   output_directory_base: str = f'/home/submit/{username}/results/'
   file2b_directory: str = INTERACTION_2B_PATH
   file3b_directory: str = INTERACTION_3B_PATH
@@ -54,8 +56,8 @@ class ImsrgParams():
   opnames_decay: list[str] = field(default_factory=list)
   ops: list = field(default_factory=list)
   op_strings: list[str] = field(default_factory=list) #Name at the end of the snt file
-  write_HO_ops: bool = True
-  write_HF_ops: bool = True
+  write_HO_ops: bool = False
+  write_HF_ops: bool = False
   #Strings for submission
   run_cmd: str = None
   header: str = None
